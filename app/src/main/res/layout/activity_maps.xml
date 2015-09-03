@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
@@ -23,36 +22,3 @@
         map:cameraZoom="20" map:mapType="normal" />
 
 </LinearLayout>
-=======
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    android:gravity="center_horizontal">
-
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textAppearance="@style/NotificationContent"
-        android:id="@+id/textView"
-        android:gravity="center" />
-
-    <fragment xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:map="http://schemas.android.com/apk/res-auto"
-        xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
-        android:layout_height="match_parent" android:id="@+id/map" tools:context=".MapsActivity"
-        android:name="com.google.android.gms.maps.SupportMapFragment"
-        map:cameraTilt="30"
-        map:cameraZoom="13"
-        map:mapType="normal"
-        map:uiCompass="true"
-        map:uiRotateGestures="true"
-        map:uiScrollGestures="true"
-        map:uiTiltGestures="true"
-        map:uiZoomControls="true"
-        map:uiZoomGestures="true"/>
-
-</LinearLayout>
->>>>>>> f77a2cdadef554b4657a156f4aeef47588d34c62
