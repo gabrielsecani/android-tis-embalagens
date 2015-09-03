@@ -1,3 +1,22 @@
+<<<<<<< HEAD
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <option name="distributionType" value="DEFAULT_WRAPPED" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="gradleJvm" value="1.7" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/app" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
+=======
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="GradleSettings">
@@ -16,4 +35,5 @@
       </GradleProjectSettings>
     </option>
   </component>
+>>>>>>> f77a2cdadef554b4657a156f4aeef47588d34c62
 </project>
