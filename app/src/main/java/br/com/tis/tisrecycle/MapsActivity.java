@@ -1,33 +1,34 @@
 package br.com.tis.tisrecycle;
 
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
-import android.support.v4.app.NotificationCompat;
-import android.widget.RemoteViews;
+import android.util.Log;
+import android.view.KeyEvent;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
 
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.Projection;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.maps.android.clustering.ClusterManager;
-
-import java.text.SimpleDateFormat;
-import java.util.Date;
 
 public class MapsActivity extends FragmentActivity {
 
-    private GoogleMap mMap; // Might be null if Google Play services APK is not available.
+    public static final String TAG = "MapsActivity";
+    public static final String LAST_LOCATION = "MyLastLocation";
 
-    private LatLng llMeuLugar;
+    private GoogleMap mMap; // Might be null if Google Play services APK is not available.
+    private EditText txtBusca;
+    private Button btnBuscar;
+
+    public static LatLng llMeuLugar;
+
+    private Thread tAtualizaMeuLocal;
 
     private ClusterManager<MyItem> mClusterManager;
 
@@ -37,82 +38,92 @@ public class MapsActivity extends FragmentActivity {
 
         setContentView(R.layout.activity_maps);
 
-        if(GoogleApiAvailability.getInstance()==null)
-            System.out.println("GoogleApiAvailability.getInstance() == null");
+        SharedPreferences settings = getSharedPreferences(LAST_LOCATION, 0);
+        llMeuLugar = new LatLng(
+                Double.parseDouble(settings.getString("LastLatitude", "-38") ),
+                Double.parseDouble(settings.getString("LastLongitude", "-36") ) );
+
+        if (GoogleApiAvailability.getInstance()==null)
+            Log.d(TAG, "GoogleApiAvailability.getInstance() == null");
         else {
             int isAval = GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(this.getBaseContext());
-            System.out.println("isAval: " + isAval);
+            Log.d(TAG, "isAval: " + isAval);
         }
 
+        setUpEvents();
+
         setUpMapIfNeeded();
-        (new Runnable(){
+
+        setUpMeuLocalIfNeeded();
+    }
+
+    @Override
+    protected void onStop(){
+        super.onStop();
+
+        llMeuLugar = (mMap.getMyLocation()==null?new LatLng(-23.6117561,-46.6420428): new LatLng(mMap.getMyLocation().getLatitude(), mMap.getMyLocation().getLongitude()));
+
+        // We need an Editor object to make preference changes.
+        // All objects are from android.context.Context
+        SharedPreferences settings = getSharedPreferences(LAST_LOCATION, 0);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putString("LastLatitude", String.valueOf(llMeuLugar.latitude));
+        editor.putString("LastLongitude", String.valueOf(llMeuLugar.longitude));
+
+        // Commit the edits!
+        editor.commit();
+    }
+
+    private void setUpEvents() {
+        btnBuscar = (Button)findViewById(R.id.btnBuscar);
+        btnBuscar.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void run() {
-                mMap.moveCamera(CameraUpdateFactory.newLatLng(llMeuLugar));
-                mMap.moveCamera(CameraUpdateFactory.zoomTo(1));
+            public void onClick(View v) {
+                Log.d(TAG, txtBusca.getText().toString());
+                btnBuscarOnClick(v);
             }
-        }).run();
+        });
+
+        txtBusca = (EditText)findViewById(R.id.txtBusca);
+        txtBusca.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+            }
+        });
+        txtBusca.setOnKeyListener(new View.OnKeyListener() {
+            @Override
+            public boolean onKey(View v, int keyCode, KeyEvent event) {
+                Log.d(TAG, "KeyCode: " + keyCode);
+                Log.d(TAG, "KeyEvent: " + event.getCharacters());
+                Log.d(TAG, txtBusca.getText().toString());
+
+                btnBuscar.setEnabled(txtBusca.getText().length() > 0);
+
+                return true;
+            }
+        });
+    }
+
+    private void btnBuscarOnClick(View v){
+
+        //showNotification();
+
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(llMeuLugar));
+        mMap.moveCamera(CameraUpdateFactory.zoomTo(1));
+
+        llMeuLugar = (mMap.getMyLocation()==null?new LatLng(-23.6117561,-46.6420428): new LatLng(mMap.getMyLocation().getLatitude(), mMap.getMyLocation().getLongitude()));
 
     }
 
-    private void showNotification(int isAval){
-        NotificationCompat.Builder builder = new android.support.v4.app.NotificationCompat.Builder(this);
-
-        //Create Intent to launch this Activity again if the notification is clicked.
-        Intent i = new Intent(this, MapsActivity.class);
-        i.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent intent = PendingIntent.getActivity(this, 0, i,
-                PendingIntent.FLAG_UPDATE_CURRENT);
-        builder.setContentIntent(intent);
-
-        // Sets the ticker text
-        builder.setTicker("isAval: " + String.valueOf(isAval));
-
-        // Sets the small icon for the ticker
-//        builder.setSmallIcon(R.drawable.ic_stat_custom);
-
-        // Cancel the notification when clicked
-        builder.setAutoCancel(true);
-
-        // Build the notification
-        Notification notification = builder.build();
-
-        // Inflate the notification layout as RemoteViews
-        RemoteViews contentView = new RemoteViews(getPackageName(), R.layout.notification);
-
-        // Set text on a TextView in the RemoteViews programmatically.
-        final String time = new SimpleDateFormat("dd/MM/yyyy hh:mm:ss").format(new Date());
-        final String text = getResources().getString(R.string.collapsed, time);
-        contentView.setTextViewText(R.id.textView,text);
-
-            /* Workaround: Need to set the content view here directly on the notification.
-             * NotificationCompatBuilder contains a bug that prevents this from working on platform
-             * versions HoneyComb.
-             * See https://code.google.com/p/android/issues/detail?id=30495
-             */
-        notification.contentView=contentView;
-
-        // Add a big content view to the notification if supported.
-        // Support for expanded notifications was added in API level 16.
-        // (The normal contentView is shown when the notification is collapsed, when expanded the
-        // big content view set here is displayed.)
-//        if(Build.VERSION.SDK_INT>=16)
-//        {
-//             Inflate and set the layout for the expanded notification view
-//            RemoteViews expandedView =
-//                    new RemoteViews(getPackageName(), R.layout.notification_expanded);
-//            notification.bigContentView = expandedView;
-//        }
-
-        // START_INCLUDE(notify)
-        // Use the NotificationManager to show the notification
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.notify(0,notification);
-    }
     @Override
     protected void onResume() {
         super.onResume();
         setUpMapIfNeeded();
+
+        Log.w(TAG, "resume.");
+        Log.wtf(TAG, "WTF resume.");
+
     }
 
     /**
@@ -142,7 +153,30 @@ public class MapsActivity extends FragmentActivity {
             }
         }
     }
+    private void setUpMeuLocalIfNeeded(){
+        if (tAtualizaMeuLocal == null) {
+            tAtualizaMeuLocal = new Thread(new Runnable() {
 
+                public void run() {
+                    Log.w(TAG, "Thread run.");
+                    Log.wtf(TAG, "WTF Thread run.");
+                    try {
+                        if (mMap != null)
+                            MapsActivity.llMeuLugar = (mMap.getMyLocation() == null ? new LatLng(-23.611, -46.642) : new LatLng(mMap.getMyLocation().getLatitude(), mMap.getMyLocation().getLongitude()));
+                    } catch (Exception e) {
+                        Log.w(TAG, "Thread tAtualizaMeuLocal: "+e.getMessage());
+                    }
+                    try{
+                        Thread.sleep(3000);
+                    } catch (InterruptedException e) {
+                        Log.w(TAG, "Erro ao dormir thread tAtualizaMeuLocal: ", e);
+                    }
+                }
+            });
+            if(!tAtualizaMeuLocal.isAlive())
+                tAtualizaMeuLocal.start();
+        }
+    }
     /**
      * This is where we can add markers or lines, add listeners or move the camera. In this case, we
      * just add a marker near Africa.
@@ -164,47 +198,6 @@ public class MapsActivity extends FragmentActivity {
         uis.setMapToolbarEnabled(true);
 
         mMap.setBuildingsEnabled(false);
-        //CameraPosition cp = mMap.getCameraPosition();
-
-        //mMap.animateCamera(c);
-        //cp.zoom = 15;
-        //cp.target = new LatLng(mMap.getMyLocation().getLatitude(), mMap.getMyLocation().getLongitude());
-
-        LatLng itemLatLng1 = new LatLng(-23.542180, -46.634458),
-               itemLatLng2 = new LatLng(-23.545121, -46.635629),
-               itemLatLng3 = (mMap.getMyLocation()==null?new LatLng(-23.6117561,-46.6420428): new LatLng(mMap.getMyLocation().getLatitude(), mMap.getMyLocation().getLongitude()));
-
-        mMap.addMarker(new MarkerOptions().position(itemLatLng1).title("Marca 1"));
-        mMap.addMarker(new MarkerOptions().position(itemLatLng2).title("Marca 2"));
-        mMap.addMarker(new MarkerOptions().position(itemLatLng3).title("Onde estou"));
-        llMeuLugar = (mMap.getMyLocation()==null?new LatLng(-23.6117561,-46.6420428): new LatLng(mMap.getMyLocation().getLatitude(), mMap.getMyLocation().getLongitude()));
-        mMap.addMarker(new MarkerOptions().position(llMeuLugar).title("Minha posicao"));
-
-        mMap.getProjection().toScreenLocation(itemLatLng3);
-
-        mMap.setOnMapClickListener(new GoogleMap.OnMapClickListener() {
-            @Override
-            public void onMapClick(LatLng latLng) {
-                Projection p = mMap.getProjection();
-                System.out.println(p.getVisibleRegion().describeContents());
-                System.out.println(p.getVisibleRegion().farLeft.latitude);
-                System.out.println(p.getVisibleRegion().farLeft.longitude);
-                llMeuLugar = (mMap.getMyLocation() == null ? new LatLng(-23.611, -46.642) : new LatLng(mMap.getMyLocation().getLatitude(), mMap.getMyLocation().getLongitude()));
-                if (mMap.getMyLocation() != null) {
-                    System.out.println(mMap.getMyLocation().getLatitude());
-                    System.out.println(mMap.getMyLocation().getLongitude());
-                }
-                MarkerOptions mMeuLugar = new MarkerOptions()
-                        .position(llMeuLugar)
-                        .title("Minha posicao")
-                        .alpha(0.7f)
-                        .snippet("Esta é a minha localizacao inicial!")
-                        .flat(false)
-                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.robot));
-                mMap.addMarker(mMeuLugar);
-
-            }
-        });
 
         setUpClusterer();
 
