@@ -2,51 +2,51 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:gravity="center_horizontal"
     android:orientation="vertical">
-
-<RelativeLayout
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_gravity="center_horizontal">
-
-    <EditText
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:textAppearance="@style/NotificationContent"
-        android:id="@+id/txtBusca"
-        android:gravity="center"
-        android:layout_gravity="left"
-        android:inputType="textAutoCorrect"
-        android:layout_alignBottom="@+id/btnBuscar"
-        android:layout_alignParentStart="true"
-        android:layout_toStartOf="@+id/btnBuscar"
-        android:keepScreenOn="false"
-        android:selectAllOnFocus="true"
-        android:singleLine="true"
-        android:autoText="true"
-        android:layout_marginLeft="6dp"
-        android:layout_marginRight="6dp" />
-
-    <Button
-        android:layout_width="wrap_content"
+    <RelativeLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/abc_search_hint"
-        android:id="@+id/btnBuscar"
-        android:layout_gravity="right"
-        android:enabled="false"
-        android:longClickable="false"
-        android:layout_centerVertical="true"
-        android:layout_alignParentEnd="true"
-        android:clickable="true"
-        android:layout_marginRight="6dp" />
+        android:layout_gravity="center_horizontal">
 
-</RelativeLayout>
+        <EditText
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:textAppearance="@style/NotificationContent"
+            android:id="@+id/txtBusca"
+            android:gravity="left"
+            android:layout_gravity="left"
+            android:inputType="textPostalAddress"
+            android:layout_alignBottom="@+id/btnBuscar"
+            android:layout_alignParentStart="true"
+            android:layout_toStartOf="@+id/btnBuscar"
+            android:keepScreenOn="false"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:autoText="true"
+            android:layout_marginLeft="6dp"
+            android:layout_marginRight="6dp" />
+
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/search_hint"
+            android:id="@+id/btnBuscar"
+            android:layout_gravity="right"
+            android:enabled="true"
+            android:longClickable="false"
+            android:layout_centerVertical="true"
+            android:layout_alignParentEnd="true"
+            android:clickable="true"
+            android:layout_marginRight="6dp" />
+
+    </RelativeLayout>
 
     <fragment
         xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
-        android:layout_height="match_parent" android:id="@+id/map" tools:context=".MapsActivity"
-        android:name="com.google.android.gms.maps.SupportMapFragment" />
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/map" tools:context=".MapsActivity"
+        android:name="com.google.android.gms.maps.SupportMapFragment"/>
 
 </LinearLayout>

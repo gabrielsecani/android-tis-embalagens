@@ -1,3 +1,5 @@
+package br.com.tisengenharia.tissapp.utils;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.NotificationManager;
@@ -10,8 +12,8 @@ import android.support.v4.app.TaskStackBuilder;
 
 import java.util.HashMap;
 
-import br.com.tis.tisrecycle.MapsActivity;
-import br.com.tis.tisrecycle.R;
+import br.com.tisengenharia.tisapp.MapsActivity;
+import br.com.tisengenharia.tisapp.R;
 
 /**
  * Created by Gabriel on 06/09/2015.
@@ -36,7 +38,7 @@ public class Notificacao {
     }
 
     public static Dialog showAlert(Context context, String msg){
-        Dialog dialog = new AlertDialog.Builder(context)
+        return new AlertDialog.Builder(context)
                 .setMessage(msg)
                 .setNeutralButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                     @Override
@@ -45,14 +47,12 @@ public class Notificacao {
                     }
                 })
                 .create();
-        return dialog;
-        //dialog.show();
     }
 
     public static void showNotification(Context context, int id, String msg){
             NotificationCompat.Builder mBuilder =
                 new NotificationCompat.Builder(context)
-                        .setSmallIcon(R.drawable.tislogo)
+                        .setSmallIcon(R.mipmap.ic_launcher)
                         .setContentTitle(context.getResources().getString(R.string.app_name))
                         .setContentText(msg);
 
