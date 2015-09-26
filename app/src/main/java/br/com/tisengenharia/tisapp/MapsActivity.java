@@ -1,6 +1,7 @@
 package br.com.tisengenharia.tisapp;
 
 import android.content.SharedPreferences;
+import android.nfc.Tag;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -16,9 +17,16 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.maps.android.clustering.Cluster;
 import com.google.maps.android.clustering.ClusterManager;
+import com.google.maps.android.clustering.view.ClusterRenderer;
 
 import java.lang.reflect.Array;
+import java.util.Set;
+import java.util.concurrent.RunnableFuture;
+
+import br.com.tisengenharia.tissapp.utils.GeoCoding;
 
 public class MapsActivity extends FragmentActivity {
 
@@ -73,6 +81,7 @@ public class MapsActivity extends FragmentActivity {
 
         // Commit the edits!
         editor.commit();
+
     }
 
     private void setUpEvents() {
@@ -107,15 +116,15 @@ public class MapsActivity extends FragmentActivity {
             Log.i(TAG, "ZoomAtual: " + zoomAtual);
             if (Math.abs(zoomAtual - zoom) <= 1)
                 zoomNovo = zoom;
-            else if (zoomAtual > zoom)
-                zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.3f;
-            else if (zoomAtual < zoom)
-                zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.15f;
+            //else if (zoomAtual > zoom)
+            //    zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
+            else// if (zoomAtual < zoom)
+                zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
 
             getMap().moveCamera(CameraUpdateFactory.zoomTo(zoomNovo));
             try {
-                Thread.yield();
-                Thread.sleep(150, 0);
+                //Thread.yield();
+                Thread.sleep(100, 0);
             } catch (InterruptedException e) {
                 Log.e(TAG, "aguardando animação de zoomSmooth:: " + e.getMessage());
             }
@@ -123,19 +132,22 @@ public class MapsActivity extends FragmentActivity {
     }
 
     private void btnBuscarOnClick(View v) {
-
         //showNotification();
         //getMap().moveCamera(CameraUpdateFactory.zoomTo(getMap().getMinZoomLevel()));
-        setMapZoomSmooth(getMap().getMinZoomLevel());
-        llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
+        setMapZoomSmooth(getMap().getCameraPosition().zoom-2);
+
+        getMap().moveCamera(CameraUpdateFactory.newLatLng(new GeoCoding().getLatLngFromAddress(String.valueOf(txtBusca.getText()))));
+
+        /*llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
         try {
             Thread.sleep(500, 0);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         getMap().moveCamera(CameraUpdateFactory.newLatLng(llMeuLugar));
+        */
 
-        setMapZoomSmooth(getMap().getMaxZoomLevel() - 3);
+        setMapZoomSmooth(getMap().getMaxZoomLevel() - 4);
         //getMap().moveCamera(CameraUpdateFactory.zoomTo(getMap().getMaxZoomLevel()));
 
 
@@ -145,9 +157,6 @@ public class MapsActivity extends FragmentActivity {
     protected void onResume() {
         super.onResume();
         setUpMapIfNeeded();
-
-        Log.v(TAG, "resume.");
-
     }
 
     /**
@@ -224,6 +233,12 @@ public class MapsActivity extends FragmentActivity {
         // Initialize the manager with the context and the map.
         // (Activity extends context, so we can pass 'this' in the constructor.)
         mClusterManager = new ClusterManager<MyItem>(this, getMap());
+        mClusterManager.setOnClusterInfoWindowClickListener(new ClusterManager.OnClusterInfoWindowClickListener<MyItem>() {
+            @Override
+            public void onClusterInfoWindowClick(Cluster<MyItem> cluster) {
+                Log.e(TAG, "onClusterInfoWindowClick:"+cluster.getPosition().latitude);
+            }
+        });
 
         // Point the map's listeners at the listeners implemented by the cluster
         // manager.

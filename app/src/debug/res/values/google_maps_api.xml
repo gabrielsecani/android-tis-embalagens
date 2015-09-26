@@ -17,4 +17,9 @@ https://console.developers.google.com/flows/enableapi?apiid=maps_android_backend
         AIzaSyD1O0y1aS34bWkvUd6N8b8S_fyq4seecjw
     </string>
 
+    <string name="google_geocoding_key" translatable="false" templateMergeStrategy="preserve">
+        AIzaSyAHoNMSfbBTDv1ivOfHc_dTPqhIj-bydRg
+    </string>
+
+
 </resources>

@@ -18,4 +18,5 @@ public class MyItem implements ClusterItem {
     public LatLng getPosition() {
         return mPosition;
     }
+
 }
