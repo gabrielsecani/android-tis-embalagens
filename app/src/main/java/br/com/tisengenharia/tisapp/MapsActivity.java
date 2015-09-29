@@ -1,7 +1,6 @@
 package br.com.tisengenharia.tisapp;
 
 import android.content.SharedPreferences;
-import android.nfc.Tag;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -16,15 +15,22 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.maps.android.clustering.Cluster;
 import com.google.maps.android.clustering.ClusterManager;
-import com.google.maps.android.clustering.view.ClusterRenderer;
+import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
-import java.lang.reflect.Array;
-import java.util.Set;
-import java.util.concurrent.RunnableFuture;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.XMLFilterImpl;
+
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 import br.com.tisengenharia.tissapp.utils.GeoCoding;
 
@@ -39,7 +45,7 @@ public class MapsActivity extends FragmentActivity {
 
     private LatLng llMeuLugar;
 
-    private ClusterManager<MyItem> mClusterManager;
+    private ClusterManager<PontoDeTroca> mClusterManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -217,6 +223,7 @@ public class MapsActivity extends FragmentActivity {
 
         getMap().setBuildingsEnabled(false);
 
+
         setUpClusterer();
 
     }
@@ -232,17 +239,69 @@ public class MapsActivity extends FragmentActivity {
 
         // Initialize the manager with the context and the map.
         // (Activity extends context, so we can pass 'this' in the constructor.)
-        mClusterManager = new ClusterManager<MyItem>(this, getMap());
-        mClusterManager.setOnClusterInfoWindowClickListener(new ClusterManager.OnClusterInfoWindowClickListener<MyItem>() {
+        mClusterManager = new ClusterManager<PontoDeTroca>(this, getMap());
+        mClusterManager.setOnClusterInfoWindowClickListener(new ClusterManager.OnClusterInfoWindowClickListener<PontoDeTroca>() {
             @Override
-            public void onClusterInfoWindowClick(Cluster<MyItem> cluster) {
-                Log.e(TAG, "onClusterInfoWindowClick:"+cluster.getPosition().latitude);
+            public void onClusterInfoWindowClick(Cluster<PontoDeTroca> cluster) {
+                Log.e(TAG, "onClusterInfoWindowClick:" + cluster.getPosition().latitude);
             }
         });
+        DefaultClusterRenderer<PontoDeTroca> defRenderer = new DefaultClusterRenderer<PontoDeTroca>(this, getMap(), mClusterManager);
+
+        defRenderer.setOnClusterItemClickListener(new ClusterManager.OnClusterItemClickListener<PontoDeTroca>() {
+            @Override
+            public boolean onClusterItemClick(PontoDeTroca pontoDeTroca) {
+
+                return false;
+            }
+        });
+
+        mClusterManager.setRenderer(defRenderer);
 
         // Point the map's listeners at the listeners implemented by the cluster
         // manager.
         getMap().setOnCameraChangeListener(mClusterManager);
+
+        getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
+            @Override
+            public void onCameraChange(CameraPosition cameraPosition) {
+                //TODO: Buscar pontos no mapa de acordo com a movimentacao de tela.
+                // http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-18.808692664927005&lngMax=-31.80579899520876&latMin=-25.010725932824087&lngMin=-54.17868717880251&zoomAtual=7
+                LatLngBounds bounds = getMap().getProjection().getVisibleRegion().latLngBounds;
+                double latMax = bounds.northeast.latitude;
+                double lngMax = bounds.northeast.longitude;
+                double latMin = bounds.southwest.latitude;
+                double lngMin = bounds.southwest.longitude;
+
+                try {
+                    String sURL = "http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&" +
+                            "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + cameraPosition.zoom;
+                    Log.i(TAG, "requesting URL: " + sURL);
+
+                    URL url = new URL(sURL);
+                    HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+                    try {
+                        InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                        InputSource is = new InputSource(in);
+                        XMLFilterImpl xml = new XMLFilterImpl();
+                        try {
+                            xml.parse(is);
+
+                        } catch (SAXException e) {
+                            e.printStackTrace();
+                        }
+                    } finally {
+                        urlConnection.disconnect();
+                    }
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+
+                mClusterManager.onCameraChange(cameraPosition);
+            }
+        });
         getMap().setOnMarkerClickListener(mClusterManager);
 
         // Add cluster items (markers) to the cluster manager.
@@ -255,14 +314,21 @@ public class MapsActivity extends FragmentActivity {
         double lat = -23.6117561;
         double lng = -46.6420428;
 
+        mClusterManager.clearItems();
+
         // Add ten cluster items in close proximity, for purposes of this example.
         for (int i = 0; i < 30; i++) {
             double offseta = (i / 420d) - (i - 3 % 6) / 90d;
             double offsetb = (i * i * ((i % 2 == 0) ? -0.3 : 0.4)) / 660d;
             lat = lat - offseta;
             lng = lng + offsetb;
-            MyItem offsetItem = new MyItem(lat, lng);
+            int id=6819;
+            String prefixo="cooperativa", cData="Cooperlix - Cooperativa de Trabalho, Produção e Reciclagem de Presidente Prudente";
+
+            PontoDeTroca offsetItem = new PontoDeTroca(lat, lng, id, prefixo, cData);
+
             mClusterManager.addItem(offsetItem);
         }
+
     }
 }
