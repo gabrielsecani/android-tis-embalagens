@@ -1,5 +1,6 @@
-package br.com.tisengenharia.tissapp.utils;
+package br.com.tisengenharia.tisapp;
 
+import android.provider.Settings;
 import android.util.Log;
 
 import com.google.android.gms.maps.model.LatLng;
