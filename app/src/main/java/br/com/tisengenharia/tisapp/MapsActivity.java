@@ -34,12 +34,13 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import br.com.tisengenharia.tissapp.utils.GeoCoding;
+import br.com.tisengenharia.utils.GeoCoding;
+import br.com.tisengenharia.utils.PontoDeTroca;
 
 public class MapsActivity extends FragmentActivity {
 
     public static final String TAG = "MapsActivity";
-    public static final String LAST_LOCATION = "MyLastLocation";
+    private final String LAST_LOCATION = "MyLastLocation";
 
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
     private EditText txtBusca;

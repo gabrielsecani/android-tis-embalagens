@@ -1,4 +1,4 @@
-package br.com.tisengenharia.tissapp.utils;
+package br.com.tisengenharia.utils;
 
 import android.app.AlertDialog;
 import android.app.Dialog;

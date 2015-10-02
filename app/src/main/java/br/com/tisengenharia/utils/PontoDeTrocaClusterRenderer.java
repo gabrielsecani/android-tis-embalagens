@@ -1,19 +1,10 @@
-package br.com.tisengenharia.tisapp;
+package br.com.tisengenharia.utils;
 
-import android.app.Application;
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.ImageView;
 
 import com.google.android.gms.maps.GoogleMap;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Created by Gabriel Lucas de Toledo Ribeiro on 29/09/2015.
