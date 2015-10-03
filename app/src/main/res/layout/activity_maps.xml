@@ -11,7 +11,6 @@
         <EditText
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:textAppearance="@style/NotificationContent"
             android:id="@+id/txtBusca"
             android:gravity="left"
             android:layout_gravity="left"
@@ -23,6 +22,7 @@
             android:selectAllOnFocus="true"
             android:singleLine="true"
             android:autoText="true"
+            android:hint="@string/inputtext_hint"
             android:layout_marginLeft="6dp"
             android:layout_marginRight="6dp" />
 

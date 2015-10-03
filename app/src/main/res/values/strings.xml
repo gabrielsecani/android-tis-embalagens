@@ -2,5 +2,6 @@
     <string name="app_name" translatable="false">TIS</string>
     <string name="title_activity_maps" translatable="false">TIS</string>
     <string name="search_hint">Search</string>
+    <string name="inputtext_hint">Looking for...</string>
 
 </resources>

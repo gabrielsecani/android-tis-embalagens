@@ -1,5 +1,7 @@
 package br.com.tisengenharia.utils;
 
+import android.content.Context;
+import android.content.ContextWrapper;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -19,13 +21,13 @@ import br.com.tisengenharia.tisapp.MapsActivity;
  *
  * See: https://developers.google.com/maps/web-services/client-library
  */
-public class GeoCoding {
+public abstract class GeoCoding {
 
-    final String google_geocoding_key="AIzaSyAHoNMSfbBTDv1ivOfHc_dTPqhIj-bydRg";
-    final String baseURL = "https://maps.googleapis.com/maps/api/geocode/json?address={0}&key="+google_geocoding_key;
+    final static String google_geocoding_key="AIzaSyAHoNMSfbBTDv1ivOfHc_dTPqhIj-bydRg";
+    //final String baseURL = "https://maps.googleapis.com/maps/api/geocode/json?address={0}&key="+google_geocoding_key;
 
-    public LatLng getLatLngFromAddress(String addressText){
-        String requestURL = String.format(baseURL, addressText);
+    public static LatLng getLatLngFromAddress(String addressText){
+        //String requestURL = String.format(baseURL, addressText);
 
         // Replace the API key below with a valid API key.
         GeoApiContext context = new GeoApiContext().setApiKey(google_geocoding_key);

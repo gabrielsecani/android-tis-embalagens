@@ -9,13 +9,12 @@ import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
-import android.view.KeyEvent;
+import android.util.Xml;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.GoogleApiAvailability;
@@ -36,7 +35,9 @@ import com.google.maps.android.ui.IconGenerator;
 
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
-import org.xml.sax.helpers.XMLFilterImpl;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.XMLReaderFactory;
+import org.xmlpull.v1.XmlPullParserFactory;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -46,37 +47,12 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-import br.com.tisengenharia.utils.GeoCoding;
 import br.com.tisengenharia.tisapp.model.PontoDeTroca;
+import br.com.tisengenharia.utils.GeoCoding;
 import br.com.tisengenharia.utils.MultiDrawable;
-import br.com.tisengenharia.utils.PontoDeTrocaClusterRenderer;
 
 public class MapsActivity extends FragmentActivity
         implements ClusterManager.OnClusterClickListener<PontoDeTroca>, ClusterManager.OnClusterInfoWindowClickListener<PontoDeTroca>, ClusterManager.OnClusterItemClickListener<PontoDeTroca>, ClusterManager.OnClusterItemInfoWindowClickListener<PontoDeTroca> {
-    @Override
-    public boolean onClusterClick(Cluster<PontoDeTroca> cluster) {
-
-        // Show a toast with some info when the cluster is clicked.
-        String firstName = cluster.getItems().iterator().next().getCDATA();
-        Toast.makeText(this, cluster.getSize() + " (including " + firstName + ")", Toast.LENGTH_SHORT).show();
-        return true;
-    }
-
-    @Override
-    public void onClusterInfoWindowClick(Cluster<PontoDeTroca> cluster) {
-        // Does nothing, but you could go to a list of the users.
-    }
-
-    @Override
-    public boolean onClusterItemClick(PontoDeTroca item) {
-        // Does nothing, but you could go into the user's profile page, for example.
-        return false;
-    }
-
-    @Override
-    public void onClusterItemInfoWindowClick(PontoDeTroca item) {
-        // Does nothing, but you could go into the user's profile page, for example.
-    }
 
     public static final String TAG = "MapsActivity";
     private final String LAST_LOCATION = "MyLastLocation";
@@ -116,9 +92,10 @@ public class MapsActivity extends FragmentActivity
 
     @Override
     protected void onStop() {
-        super.onStop();
 
-        llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
+        if(getMap()!=null)
+            if(getMap().getMyLocation()!=null)
+                llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
 
         // We need an Editor object to make preference changes.
         // All objects are from android.context.Context
@@ -127,8 +104,11 @@ public class MapsActivity extends FragmentActivity
         editor.putString("LastLatitude", String.valueOf(llMeuLugar.latitude));
         editor.putString("LastLongitude", String.valueOf(llMeuLugar.longitude));
 
+        editor.apply();
         // Commit the edits!
         editor.commit();
+
+        super.onStop();
 
     }
 
@@ -194,12 +174,11 @@ public class MapsActivity extends FragmentActivity
 
         protected CameraUpdate doInBackground(String... SearchAddresses) {
             int count = SearchAddresses.length;
-            long totalSize = 0;
             CameraUpdate newCamera = null;
             for (int i = 0; i < count; i++) {
-                LatLng found = new GeoCoding().getLatLngFromAddress(SearchAddresses[i]);
+                LatLng found = GeoCoding.getLatLngFromAddress(SearchAddresses[i]);
                 newCamera = CameraUpdateFactory.newLatLng(found);
-                //totalSize += Downloader.downloadFile(urls[i]);
+
                 publishProgress((int) ((i / (float) count) * 100));
                 // Escape early if cancel() is called
                 if (isCancelled()) break;
@@ -307,24 +286,18 @@ public class MapsActivity extends FragmentActivity
         getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(-23.6117561, -46.6420428), 8));
 
 
+        // Initialize the manager with the context and the map.
+        // (Activity extends context, so we can pass 'this' in the constructor.)
+        mClusterManager = new ClusterManager<PontoDeTroca>(this, getMap());
+
         mClusterManager.setRenderer(new PontoDeTrocaRenderer());
         getMap().setOnCameraChangeListener(mClusterManager);
         getMap().setOnMarkerClickListener(mClusterManager);
         getMap().setOnInfoWindowClickListener(mClusterManager);
         mClusterManager.setOnClusterClickListener(this);
-        mClusterManager.setOnClusterInfoWindowClickListener(this);
         mClusterManager.setOnClusterItemClickListener(this);
         mClusterManager.setOnClusterItemInfoWindowClickListener(this);
-
-        // Initialize the manager with the context and the map.
-        // (Activity extends context, so we can pass 'this' in the constructor.)
-        mClusterManager = new ClusterManager<PontoDeTroca>(this, getMap());
-        mClusterManager.setOnClusterInfoWindowClickListener(new ClusterManager.OnClusterInfoWindowClickListener<PontoDeTroca>() {
-            @Override
-            public void onClusterInfoWindowClick(Cluster<PontoDeTroca> cluster) {
-                Log.e(TAG, "onClusterInfoWindowClick:" + cluster.getPosition().latitude);
-            }
-        });
+        mClusterManager.setOnClusterInfoWindowClickListener(this);
 
 //        DefaultClusterRenderer<PontoDeTroca> defRenderer = new DefaultClusterRenderer<PontoDeTroca>(this, getMap(), mClusterManager);
 //
@@ -342,19 +315,51 @@ public class MapsActivity extends FragmentActivity
         // manager.
         getMap().setOnCameraChangeListener(mClusterManager);
 
-        /*getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
-            @Override
-            public void onCameraChange(CameraPosition cameraPosition) {
+//        getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
+//            @Override
+//            public void onCameraChange(CameraPosition cameraPosition) {
+//
+//                new LoadItemsTask().execute(cameraPosition);
+//
+//            }
+//        });
 
-                new LoadItemsTask().execute(cameraPosition);
-
-            }
-        });
-        */
         getMap().setOnMarkerClickListener(mClusterManager);
 
         // Add cluster items (markers) to the cluster manager.
-        addItems();
+        //addItems();
+        new LoadItemsTask().execute(getMap().getCameraPosition());
+
+    }
+
+    @Override
+    public boolean onClusterClick(Cluster<PontoDeTroca> cluster) {
+
+        // Show a toast with some info when the cluster is clicked.
+        String firstName = cluster.getItems().iterator().next().getCDATA();
+        Toast.makeText(this, cluster.getSize() + " (" + firstName + ", ...)", Toast.LENGTH_SHORT).show();
+        return true;
+    }
+
+    @Override
+    public void onClusterInfoWindowClick(Cluster<PontoDeTroca> cluster) {
+        // Does nothing, but you could go to a list of the users.
+        StringBuilder lista = new StringBuilder(cluster.getSize());
+        for (PontoDeTroca pt: cluster.getItems() ) {
+            lista.append(pt.getCDATA()+"<br> ");
+        }
+        Toast.makeText(this, lista.toString(), Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public boolean onClusterItemClick(PontoDeTroca item) {
+        // Does nothing, but you could go into the user's profile page, for example.
+        return false;
+    }
+
+    @Override
+    public void onClusterItemInfoWindowClick(PontoDeTroca item) {
+        // Does nothing, but you could go into the user's profile page, for example.
     }
 
     private class LoadItemsTask extends AsyncTask<CameraPosition, Integer, CameraPosition> {
@@ -369,12 +374,14 @@ public class MapsActivity extends FragmentActivity
                 try {
                     bounds = getMap().getProjection().getVisibleRegion().latLngBounds;
                 } catch (Exception e) {
-                    try {
+                    /*try {
                         Thread.sleep(100);
                     } catch (InterruptedException e1) {
                         e1.printStackTrace();
-                    }
+                    }*/
+
                     Log.i(TAG, "Map Client not ready yet. waiting for 100ms.");
+                    return null;
                 }
             }
             double latMax = bounds.northeast.latitude;
@@ -392,13 +399,16 @@ public class MapsActivity extends FragmentActivity
                 try {
                     InputStream in = new BufferedInputStream(urlConnection.getInputStream());
                     InputSource is = new InputSource(in);
-                    XMLFilterImpl xml = new XMLFilterImpl();
+                    XMLReader xml = XMLReaderFactory.createXMLReader();
+
                     try {
                         xml.parse(is);
 
                     } catch (SAXException e) {
                         e.printStackTrace();
                     }
+                } catch (SAXException e) {
+                    e.printStackTrace();
                 } finally {
                     urlConnection.disconnect();
                 }
@@ -411,8 +421,13 @@ public class MapsActivity extends FragmentActivity
 
         @Override
         protected void onPostExecute(CameraPosition cameraPosition) {
-            mClusterManager.onCameraChange(cameraPosition);
-            mClusterManager.cluster();
+            if (cameraPosition != null) {
+                mClusterManager.onCameraChange(cameraPosition);
+                mClusterManager.cluster();
+            }
+            //else{
+            //new LoadItemsTask().execute(cameraPosition);
+            //}
         }
     }
 
@@ -440,7 +455,6 @@ public class MapsActivity extends FragmentActivity
         }
 
     }
-
 
     /**
      * Copyright 2013 Google Inc.
