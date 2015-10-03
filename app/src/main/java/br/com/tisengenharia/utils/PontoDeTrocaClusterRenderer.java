@@ -6,6 +6,8 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
+import br.com.tisengenharia.tisapp.model.PontoDeTroca;
+
 /**
  * Created by Gabriel Lucas de Toledo Ribeiro on 29/09/2015.
  */

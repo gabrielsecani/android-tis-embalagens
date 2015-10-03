@@ -1,6 +1,8 @@
 package br.com.tisengenharia.tisapp;
 
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
@@ -9,9 +11,12 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.maps.CameraUpdate;
@@ -19,12 +24,15 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.maps.android.clustering.Cluster;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
+import com.google.maps.android.ui.IconGenerator;
 
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -35,12 +43,40 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 import br.com.tisengenharia.utils.GeoCoding;
-import br.com.tisengenharia.utils.Notificacao;
-import br.com.tisengenharia.utils.PontoDeTroca;
+import br.com.tisengenharia.tisapp.model.PontoDeTroca;
+import br.com.tisengenharia.utils.MultiDrawable;
+import br.com.tisengenharia.utils.PontoDeTrocaClusterRenderer;
 
-public class MapsActivity extends FragmentActivity {
+public class MapsActivity extends FragmentActivity
+        implements ClusterManager.OnClusterClickListener<PontoDeTroca>, ClusterManager.OnClusterInfoWindowClickListener<PontoDeTroca>, ClusterManager.OnClusterItemClickListener<PontoDeTroca>, ClusterManager.OnClusterItemInfoWindowClickListener<PontoDeTroca> {
+    @Override
+    public boolean onClusterClick(Cluster<PontoDeTroca> cluster) {
+
+        // Show a toast with some info when the cluster is clicked.
+        String firstName = cluster.getItems().iterator().next().getCDATA();
+        Toast.makeText(this, cluster.getSize() + " (including " + firstName + ")", Toast.LENGTH_SHORT).show();
+        return true;
+    }
+
+    @Override
+    public void onClusterInfoWindowClick(Cluster<PontoDeTroca> cluster) {
+        // Does nothing, but you could go to a list of the users.
+    }
+
+    @Override
+    public boolean onClusterItemClick(PontoDeTroca item) {
+        // Does nothing, but you could go into the user's profile page, for example.
+        return false;
+    }
+
+    @Override
+    public void onClusterItemInfoWindowClick(PontoDeTroca item) {
+        // Does nothing, but you could go into the user's profile page, for example.
+    }
 
     public static final String TAG = "MapsActivity";
     private final String LAST_LOCATION = "MyLastLocation";
@@ -121,19 +157,8 @@ public class MapsActivity extends FragmentActivity {
 
             @Override
             public void afterTextChanged(Editable s) {
+                Log.d(TAG, "Buscar por: " + s);
                 btnBuscar.setEnabled(s.length() > 2);
-            }
-        });
-        txtBusca.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                Log.d(TAG, "actionId: " + actionId);
-                String txt = String.valueOf(txtBusca.getText());
-                Log.d(TAG, "Buscar por: " + txt);
-
-                btnBuscar.setEnabled(txt.length() > 1);
-
-                return true;
             }
         });
     }
@@ -145,8 +170,8 @@ public class MapsActivity extends FragmentActivity {
             Log.i(TAG, "ZoomAtual: " + zoomAtual);
             if (Math.abs(zoomAtual - zoom) <= 1)
                 zoomNovo = zoom;
-            //else if (zoomAtual > zoom)
-            //    zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
+                //else if (zoomAtual > zoom)
+                //    zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
             else// if (zoomAtual < zoom)
                 zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
 
@@ -281,6 +306,16 @@ public class MapsActivity extends FragmentActivity {
         // Position the map.
         getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(-23.6117561, -46.6420428), 8));
 
+
+        mClusterManager.setRenderer(new PontoDeTrocaRenderer());
+        getMap().setOnCameraChangeListener(mClusterManager);
+        getMap().setOnMarkerClickListener(mClusterManager);
+        getMap().setOnInfoWindowClickListener(mClusterManager);
+        mClusterManager.setOnClusterClickListener(this);
+        mClusterManager.setOnClusterInfoWindowClickListener(this);
+        mClusterManager.setOnClusterItemClickListener(this);
+        mClusterManager.setOnClusterItemInfoWindowClickListener(this);
+
         // Initialize the manager with the context and the map.
         // (Activity extends context, so we can pass 'this' in the constructor.)
         mClusterManager = new ClusterManager<PontoDeTroca>(this, getMap());
@@ -322,7 +357,7 @@ public class MapsActivity extends FragmentActivity {
         addItems();
     }
 
-    private class LoadItemsTask extends AsyncTask<CameraPosition, Integer, CameraPosition>{
+    private class LoadItemsTask extends AsyncTask<CameraPosition, Integer, CameraPosition> {
 
         @Override
         protected CameraPosition doInBackground(CameraPosition... cameraPosition) {
@@ -330,10 +365,10 @@ public class MapsActivity extends FragmentActivity {
             // http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-18.808692664927005&lngMax=-31.80579899520876&latMin=-25.010725932824087&lngMin=-54.17868717880251&zoomAtual=7
             LatLngBounds bounds = null;
 
-            while(bounds==null){
+            while (bounds == null) {
                 try {
                     bounds = getMap().getProjection().getVisibleRegion().latLngBounds;
-                }catch (Exception e){
+                } catch (Exception e) {
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException e1) {
@@ -377,6 +412,7 @@ public class MapsActivity extends FragmentActivity {
         @Override
         protected void onPostExecute(CameraPosition cameraPosition) {
             mClusterManager.onCameraChange(cameraPosition);
+            mClusterManager.cluster();
         }
     }
 
@@ -394,13 +430,80 @@ public class MapsActivity extends FragmentActivity {
             double offsetb = (i * i * ((i % 2 == 0) ? -0.3 : 0.4)) / 660d;
             lat = lat - offseta;
             lng = lng + offsetb;
-            int id=6819;
-            String prefixo="cooperativa", cData="Cooperlix - Cooperativa de Trabalho, Produção e Reciclagem de Presidente Prudente";
+            int id = 6819;
+            String prefixo = "cooperativa",
+                     cData = "Cooperlix "+i+" - Cooperativa de Trabalho, Produção e Reciclagem de Presidente Prudente";
 
-            PontoDeTroca offsetItem = new PontoDeTroca(lat, lng, id, prefixo, cData);
+            PontoDeTroca offsetItem = new PontoDeTroca(lat, lng, id, prefixo, cData, R.drawable.marcadorpadrao);
 
             mClusterManager.addItem(offsetItem);
         }
 
+    }
+
+
+    /**
+     * Copyright 2013 Google Inc.
+     * Adapted class from Google Maps demo CustomMarkerClusteringDemoActivity
+     */
+    private class PontoDeTrocaRenderer extends DefaultClusterRenderer<PontoDeTroca> {
+        private final IconGenerator mIconGenerator = new IconGenerator(getApplicationContext());
+        private final IconGenerator mClusterIconGenerator = new IconGenerator(getApplicationContext());
+        private final ImageView mImageView;
+        private final ImageView mClusterImageView;
+        private final int mDimension;
+
+        public PontoDeTrocaRenderer() {
+            super(getApplicationContext(), getMap(), mClusterManager);
+
+            View multiProfile = getLayoutInflater().inflate(R.layout.multi_profile, null);
+            mClusterIconGenerator.setContentView(multiProfile);
+            mClusterImageView = (ImageView) multiProfile.findViewById(R.id.image);
+
+            mImageView = new ImageView(getApplicationContext());
+            mDimension = (int) getResources().getDimension(R.dimen.custom_profile_image);
+            mImageView.setLayoutParams(new ViewGroup.LayoutParams(mDimension, mDimension));
+            int padding = (int) getResources().getDimension(R.dimen.custom_profile_padding);
+            mImageView.setPadding(padding, padding, padding, padding);
+            mIconGenerator.setContentView(mImageView);
+        }
+
+        @Override
+        protected void onBeforeClusterItemRendered(PontoDeTroca PontoDeTroca, MarkerOptions markerOptions) {
+            // Draw a single PontoDeTroca.
+            // Set the info window to show their name.
+            mImageView.setImageResource(PontoDeTroca.profilePhoto);
+            Bitmap icon = mIconGenerator.makeIcon();
+            markerOptions.icon(BitmapDescriptorFactory.fromBitmap(icon)).title(PontoDeTroca.getCDATA());
+        }
+
+        @Override
+        protected void onBeforeClusterRendered(Cluster<PontoDeTroca> cluster, MarkerOptions markerOptions) {
+            // Draw multiple people.
+            // Note: this method runs on the UI thread. Don't spend too much time in here (like in this example).
+            List<Drawable> profilePhotos = new ArrayList<Drawable>(Math.min(4, cluster.getSize()));
+            int width = mDimension;
+            int height = mDimension;
+
+            for (PontoDeTroca p : cluster.getItems()) {
+                // Draw 4 at most.
+                if (profilePhotos.size() == 4) break;
+                Drawable drawable = getResources().getDrawable(p.profilePhoto);
+                drawable.setBounds(0, 0, width, height);
+                profilePhotos.add(drawable);
+            }
+            MultiDrawable multiDrawable = new MultiDrawable(profilePhotos);
+            multiDrawable.setBounds(0, 0, width, height);
+
+            mClusterImageView.setImageDrawable(multiDrawable);
+            Bitmap icon = mClusterIconGenerator.makeIcon(String.valueOf(cluster.getSize()));
+            markerOptions.icon(BitmapDescriptorFactory.fromBitmap(icon));
+        }
+
+        @Override
+        protected boolean shouldRenderAsCluster(Cluster cluster) {
+            // Always render clusters.
+            return cluster.getSize() > 1;
+        }
     }
 }
