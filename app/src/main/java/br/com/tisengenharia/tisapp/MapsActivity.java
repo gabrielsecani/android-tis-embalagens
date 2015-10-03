@@ -1,6 +1,7 @@
 package br.com.tisengenharia.tisapp;
 
 import android.content.SharedPreferences;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
@@ -13,6 +14,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -35,6 +37,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 import br.com.tisengenharia.utils.GeoCoding;
+import br.com.tisengenharia.utils.Notificacao;
 import br.com.tisengenharia.utils.PontoDeTroca;
 
 public class MapsActivity extends FragmentActivity {
@@ -99,6 +102,7 @@ public class MapsActivity extends FragmentActivity {
             @Override
             public void onClick(View v) {
                 Log.d(TAG, "Buscando: " + String.valueOf(txtBusca.getText()));
+
                 btnBuscarOnClick(v);
             }
         });
@@ -117,7 +121,7 @@ public class MapsActivity extends FragmentActivity {
 
             @Override
             public void afterTextChanged(Editable s) {
-
+                btnBuscar.setEnabled(s.length() > 2);
             }
         });
         txtBusca.setOnEditorActionListener(new TextView.OnEditorActionListener() {
@@ -156,26 +160,47 @@ public class MapsActivity extends FragmentActivity {
         }
     }
 
+    private class SearchAddressTask extends AsyncTask<String, Integer, CameraUpdate> {
+
+        protected void onPreExecute() {
+            super.onPreExecute();
+            setMapZoomSmooth(getMap().getCameraPosition().zoom - 2);
+        }
+
+        protected CameraUpdate doInBackground(String... SearchAddresses) {
+            int count = SearchAddresses.length;
+            long totalSize = 0;
+            CameraUpdate newCamera = null;
+            for (int i = 0; i < count; i++) {
+                LatLng found = new GeoCoding().getLatLngFromAddress(SearchAddresses[i]);
+                newCamera = CameraUpdateFactory.newLatLng(found);
+                //totalSize += Downloader.downloadFile(urls[i]);
+                publishProgress((int) ((i / (float) count) * 100));
+                // Escape early if cancel() is called
+                if (isCancelled()) break;
+            }
+            return newCamera;
+        }
+
+        protected void onProgressUpdate(Integer... progress) {
+            //setProgressPercent(progress[0]);
+        }
+
+        protected void onPostExecute(CameraUpdate result) {
+            getMap().moveCamera(result);
+            setMapZoomSmooth(getMap().getMaxZoomLevel() - 6);
+            //Notificacao.showAlert(getApplicationContext(), "Search " + (result != null ? "done" : "error") + ".").show();
+        }
+    }
+
     private void btnBuscarOnClick(View v) {
         //showNotification();
         //getMap().moveCamera(CameraUpdateFactory.zoomTo(getMap().getMinZoomLevel()));
-        setMapZoomSmooth(getMap().getCameraPosition().zoom-2);
-
-        getMap().moveCamera(CameraUpdateFactory.newLatLng(new GeoCoding().getLatLngFromAddress(String.valueOf(txtBusca.getText()))));
-
-        /*llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
-        try {
-            Thread.sleep(500, 0);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        getMap().moveCamera(CameraUpdateFactory.newLatLng(llMeuLugar));
-        */
-
-        setMapZoomSmooth(getMap().getMaxZoomLevel() - 4);
+        //getMap().moveCamera(CameraUpdateFactory.newLatLng(new GeoCoding().getLatLngFromAddress(String.valueOf(txtBusca.getText()))));
+        //llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
         //getMap().moveCamera(CameraUpdateFactory.zoomTo(getMap().getMaxZoomLevel()));
 
-
+        new SearchAddressTask().execute(String.valueOf(txtBusca.getText()));
     }
 
     @Override
@@ -265,66 +290,94 @@ public class MapsActivity extends FragmentActivity {
                 Log.e(TAG, "onClusterInfoWindowClick:" + cluster.getPosition().latitude);
             }
         });
-        DefaultClusterRenderer<PontoDeTroca> defRenderer = new DefaultClusterRenderer<PontoDeTroca>(this, getMap(), mClusterManager);
 
-        defRenderer.setOnClusterItemClickListener(new ClusterManager.OnClusterItemClickListener<PontoDeTroca>() {
-            @Override
-            public boolean onClusterItemClick(PontoDeTroca pontoDeTroca) {
-
-                return false;
-            }
-        });
-
-        mClusterManager.setRenderer(defRenderer);
+//        DefaultClusterRenderer<PontoDeTroca> defRenderer = new DefaultClusterRenderer<PontoDeTroca>(this, getMap(), mClusterManager);
+//
+//        defRenderer.setOnClusterItemClickListener(new ClusterManager.OnClusterItemClickListener<PontoDeTroca>() {
+//            @Override
+//            public boolean onClusterItemClick(PontoDeTroca pontoDeTroca) {
+//                Log.d(TAG, "setOnClusterItemClickListener: "+pontoDeTroca.getPosition().latitude);
+//                return false;
+//            }
+//        });
+//
+//        mClusterManager.setRenderer(defRenderer);
 
         // Point the map's listeners at the listeners implemented by the cluster
         // manager.
         getMap().setOnCameraChangeListener(mClusterManager);
 
-        getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
+        /*getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
             @Override
             public void onCameraChange(CameraPosition cameraPosition) {
-                //TODO: Buscar pontos no mapa de acordo com a movimentacao de tela.
-                // http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-18.808692664927005&lngMax=-31.80579899520876&latMin=-25.010725932824087&lngMin=-54.17868717880251&zoomAtual=7
-                LatLngBounds bounds = getMap().getProjection().getVisibleRegion().latLngBounds;
-                double latMax = bounds.northeast.latitude;
-                double lngMax = bounds.northeast.longitude;
-                double latMin = bounds.southwest.latitude;
-                double lngMin = bounds.southwest.longitude;
 
-                try {
-                    String sURL = "http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&" +
-                            "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + cameraPosition.zoom;
-                    Log.i(TAG, "requesting URL: " + sURL);
+                new LoadItemsTask().execute(cameraPosition);
 
-                    URL url = new URL(sURL);
-                    HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
-                    try {
-                        InputStream in = new BufferedInputStream(urlConnection.getInputStream());
-                        InputSource is = new InputSource(in);
-                        XMLFilterImpl xml = new XMLFilterImpl();
-                        try {
-                            xml.parse(is);
-
-                        } catch (SAXException e) {
-                            e.printStackTrace();
-                        }
-                    } finally {
-                        urlConnection.disconnect();
-                    }
-
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-
-                mClusterManager.onCameraChange(cameraPosition);
             }
         });
+        */
         getMap().setOnMarkerClickListener(mClusterManager);
 
         // Add cluster items (markers) to the cluster manager.
         addItems();
+    }
+
+    private class LoadItemsTask extends AsyncTask<CameraPosition, Integer, CameraPosition>{
+
+        @Override
+        protected CameraPosition doInBackground(CameraPosition... cameraPosition) {
+            //TODO: Buscar pontos no mapa de acordo com a movimentacao de tela.
+            // http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-18.808692664927005&lngMax=-31.80579899520876&latMin=-25.010725932824087&lngMin=-54.17868717880251&zoomAtual=7
+            LatLngBounds bounds = null;
+
+            while(bounds==null){
+                try {
+                    bounds = getMap().getProjection().getVisibleRegion().latLngBounds;
+                }catch (Exception e){
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e1) {
+                        e1.printStackTrace();
+                    }
+                    Log.i(TAG, "Map Client not ready yet. waiting for 100ms.");
+                }
+            }
+            double latMax = bounds.northeast.latitude;
+            double lngMax = bounds.northeast.longitude;
+            double latMin = bounds.southwest.latitude;
+            double lngMin = bounds.southwest.longitude;
+
+            try {
+                String sURL = "http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&" +
+                        "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + cameraPosition[0].zoom;
+                Log.i(TAG, "requesting URL: " + sURL);
+
+                URL url = new URL(sURL);
+                HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+                try {
+                    InputStream in = new BufferedInputStream(urlConnection.getInputStream());
+                    InputSource is = new InputSource(in);
+                    XMLFilterImpl xml = new XMLFilterImpl();
+                    try {
+                        xml.parse(is);
+
+                    } catch (SAXException e) {
+                        e.printStackTrace();
+                    }
+                } finally {
+                    urlConnection.disconnect();
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return cameraPosition[0];
+        }
+
+        @Override
+        protected void onPostExecute(CameraPosition cameraPosition) {
+            mClusterManager.onCameraChange(cameraPosition);
+        }
     }
 
     private void addItems() {
