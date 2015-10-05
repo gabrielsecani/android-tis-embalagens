@@ -9,7 +9,6 @@ import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
-import android.util.Xml;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -24,32 +23,27 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
-import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.maps.android.clustering.Cluster;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 import com.google.maps.android.ui.IconGenerator;
 
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.XMLReaderFactory;
-import org.xmlpull.v1.XmlPullParserFactory;
+import org.xmlpull.v1.XmlPullParserException;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.zip.GZIPInputStream;
 
 import br.com.tisengenharia.tisapp.model.PontoDeTroca;
 import br.com.tisengenharia.utils.GeoCoding;
 import br.com.tisengenharia.utils.MultiDrawable;
+import br.com.tisengenharia.utils.XMLMapMarkerParser;
 
 public class MapsActivity extends FragmentActivity
         implements ClusterManager.OnClusterClickListener<PontoDeTroca>, ClusterManager.OnClusterInfoWindowClickListener<PontoDeTroca>, ClusterManager.OnClusterItemClickListener<PontoDeTroca>, ClusterManager.OnClusterItemInfoWindowClickListener<PontoDeTroca> {
@@ -57,24 +51,29 @@ public class MapsActivity extends FragmentActivity
     public static final String TAG = "MapsActivity";
     private final String LAST_LOCATION = "MyLastLocation";
 
+    // Objects from the layout
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
     private EditText txtBusca;
     private Button btnBuscar;
+    //
 
     private LatLng llMeuLugar;
 
     private ClusterManager<PontoDeTroca> mClusterManager;
 
+    // Whether the display should be refreshed.
+    public static boolean refreshDisplay = true;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
+        refreshDisplay = true;
         setContentView(R.layout.activity_maps);
 
         SharedPreferences settings = getSharedPreferences(LAST_LOCATION, 0);
         llMeuLugar = new LatLng(
-                Double.parseDouble(settings.getString("LastLatitude", "-38")),
-                Double.parseDouble(settings.getString("LastLongitude", "-36")));
+                Double.parseDouble(settings.getString("LastLatitude", "-23.6117561")),
+                Double.parseDouble(settings.getString("LastLongitude", "-46.6420428")));
 
         if (GoogleApiAvailability.getInstance() == null)
             Log.d(TAG, "GoogleApiAvailability.getInstance() == null");
@@ -93,8 +92,8 @@ public class MapsActivity extends FragmentActivity
     @Override
     protected void onStop() {
 
-        if(getMap()!=null)
-            if(getMap().getMyLocation()!=null)
+        if (getMap() != null)
+            if (getMap().getMyLocation() != null)
                 llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
 
         // We need an Editor object to make preference changes.
@@ -328,8 +327,15 @@ public class MapsActivity extends FragmentActivity
 
         // Add cluster items (markers) to the cluster manager.
         //addItems();
-        new LoadItemsTask().execute(getMap().getCameraPosition());
+    }
 
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        if (refreshDisplay) {
+            new LoadItemsTask().execute(0);
+        }
     }
 
     @Override
@@ -345,8 +351,8 @@ public class MapsActivity extends FragmentActivity
     public void onClusterInfoWindowClick(Cluster<PontoDeTroca> cluster) {
         // Does nothing, but you could go to a list of the users.
         StringBuilder lista = new StringBuilder(cluster.getSize());
-        for (PontoDeTroca pt: cluster.getItems() ) {
-            lista.append(pt.getCDATA()+"<br> ");
+        for (PontoDeTroca pt : cluster.getItems()) {
+            lista.append(pt.getCDATA() + "<br> ");
         }
         Toast.makeText(this, lista.toString(), Toast.LENGTH_SHORT).show();
     }
@@ -362,72 +368,93 @@ public class MapsActivity extends FragmentActivity
         // Does nothing, but you could go into the user's profile page, for example.
     }
 
-    private class LoadItemsTask extends AsyncTask<CameraPosition, Integer, CameraPosition> {
+    private class LoadItemsTask extends AsyncTask<Integer, Integer, List<PontoDeTroca>> {
+        GoogleMap map = null;
+        double latMax = 0;
+        double lngMax = 0;
+        double latMin = 0;
+        double lngMin = 0;
+        float zoom = 0;
 
         @Override
-        protected CameraPosition doInBackground(CameraPosition... cameraPosition) {
+        protected void onPreExecute() {
+            super.onPreExecute();
+            map = getMap();
+
+            // https://developers.google.com/android/reference/com/google/android/gms/maps/model/VisibleRegion
+            latMax = map.getProjection().getVisibleRegion().farLeft.latitude;
+            latMin = map.getProjection().getVisibleRegion().nearLeft.latitude;
+            lngMax = map.getProjection().getVisibleRegion().farRight.longitude;
+            lngMin = map.getProjection().getVisibleRegion().nearRight.longitude;
+            zoom = map.getCameraPosition().zoom;
+
+        }
+
+        @Override
+        protected List<PontoDeTroca> doInBackground(Integer... params) {
             //TODO: Buscar pontos no mapa de acordo com a movimentacao de tela.
             // http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-18.808692664927005&lngMax=-31.80579899520876&latMin=-25.010725932824087&lngMin=-54.17868717880251&zoomAtual=7
-            LatLngBounds bounds = null;
 
-            while (bounds == null) {
-                try {
-                    bounds = getMap().getProjection().getVisibleRegion().latLngBounds;
-                } catch (Exception e) {
-                    /*try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e1) {
-                        e1.printStackTrace();
-                    }*/
-
-                    Log.i(TAG, "Map Client not ready yet. waiting for 100ms.");
-                    return null;
-                }
-            }
-            double latMax = bounds.northeast.latitude;
-            double lngMax = bounds.northeast.longitude;
-            double latMin = bounds.southwest.latitude;
-            double lngMin = bounds.southwest.longitude;
-
+            List<PontoDeTroca> items = null;
             try {
                 String sURL = "http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&" +
-                        "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + cameraPosition[0].zoom;
-                Log.i(TAG, "requesting URL: " + sURL);
+                        "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + zoom;
 
                 URL url = new URL(sURL);
-                HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
+                // Given a string representation of a URL, sets up a connection and gets
+                // an input stream.
+                HttpURLConnection urlConnection = null;
                 try {
-                    InputStream in = new BufferedInputStream(urlConnection.getInputStream());
-                    InputSource is = new InputSource(in);
-                    XMLReader xml = XMLReaderFactory.createXMLReader();
+                    urlConnection = (HttpURLConnection) url.openConnection();
+                    urlConnection.setReadTimeout(10000 /* milliseconds */);
+                    urlConnection.setConnectTimeout(15000 /* milliseconds */);
+                    urlConnection.setRequestMethod("GET");
+                    urlConnection.setDoInput(true);
+                    // Starts the query
+                    urlConnection.connect();
 
+                    InputStream zip = null;
                     try {
-                        xml.parse(is);
+                        zip = (GZIPInputStream) urlConnection.getContent();
 
-                    } catch (SAXException e) {
-                        e.printStackTrace();
+                        try {
+                            XMLMapMarkerParser xmlMapMarkerParser = new XMLMapMarkerParser();
+
+                            items = xmlMapMarkerParser.parse(zip);
+
+                            return items;
+
+                        } catch (XmlPullParserException e) {
+                            e.printStackTrace();
+                        }
+                    } finally {
+                        if (zip != null)
+                            zip.close();
                     }
-                } catch (SAXException e) {
-                    e.printStackTrace();
+
                 } finally {
-                    urlConnection.disconnect();
+                    if (urlConnection != null)
+                        urlConnection.disconnect();
                 }
 
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            return cameraPosition[0];
+            return items;
         }
 
         @Override
-        protected void onPostExecute(CameraPosition cameraPosition) {
-            if (cameraPosition != null) {
-                mClusterManager.onCameraChange(cameraPosition);
+        protected void onPostExecute(List<PontoDeTroca> returnValue) {
+            if (returnValue != null) {
                 mClusterManager.cluster();
+            } else {
+                try {
+                    Thread.sleep(100, 0);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                new LoadItemsTask().execute(0);
             }
-            //else{
-            //new LoadItemsTask().execute(cameraPosition);
-            //}
         }
     }
 
@@ -447,7 +474,7 @@ public class MapsActivity extends FragmentActivity
             lng = lng + offsetb;
             int id = 6819;
             String prefixo = "cooperativa",
-                     cData = "Cooperlix "+i+" - Cooperativa de Trabalho, Produção e Reciclagem de Presidente Prudente";
+                    cData = "Cooperlix " + i + " - Cooperativa de Trabalho, Produção e Reciclagem de Presidente Prudente";
 
             PontoDeTroca offsetItem = new PontoDeTroca(lat, lng, id, prefixo, cData, R.drawable.marcadorpadrao);
 
