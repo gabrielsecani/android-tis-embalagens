@@ -7,6 +7,16 @@ This README would normally document whatever steps are necessary to get your app
 * Quick summary
 This repo is for Android App for TIS Embalagens
 
+* How-to get&use this
+
+To make a clone:
+git clone --recursive https://gabriellucas@bitbucket.org/gabriellucas/tis-embalagens.git
+
+To add the remote origin
+git remote add origin https://gabriellucas@bitbucket.org/gabriellucas/tis-embalagens.git
+
+
+
 * Version 0.0.1
 * [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
 
