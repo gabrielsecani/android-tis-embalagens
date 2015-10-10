@@ -1,5 +1,6 @@
 package br.com.tisengenharia.tisapp;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.drawable.Drawable;
@@ -11,9 +12,14 @@ import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
+import android.widget.SimpleAdapter;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.google.android.gms.common.GoogleApiAvailability;
@@ -23,12 +29,15 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.VisibleRegion;
 import com.google.maps.android.clustering.Cluster;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 import com.google.maps.android.ui.IconGenerator;
+import com.google.maps.model.GeocodingResult;
 
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -55,6 +64,8 @@ public class MapsActivity extends FragmentActivity
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
     private EditText txtBusca;
     private Button btnBuscar;
+    private RelativeLayout pnlBuscar;
+    private Spinner spnLista;
     //
 
     private LatLng llMeuLugar;
@@ -140,6 +151,35 @@ public class MapsActivity extends FragmentActivity
                 btnBuscar.setEnabled(s.length() > 2);
             }
         });
+
+        spnLista = (Spinner)findViewById(R.id.spnLista);
+        spnLista.setVisibility(View.GONE);
+        spnLista.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                GeocodingResult result = (GeocodingResult) parent.getAdapter().getItem(position);
+                txtBusca.setText(result.formattedAddress);
+                getMap().moveCamera(CameraUpdateFactory.newLatLng(
+                        new LatLng(result.geometry.location.lat, result.geometry.location.lng)));
+                pnlBuscar.setVisibility(View.VISIBLE);
+                spnLista.setVisibility(View.GONE);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                pnlBuscar.setVisibility(View.VISIBLE);
+                spnLista.setVisibility(View.GONE);
+            }
+        });
+//        spnLista.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+//            @Override
+//            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+//
+//            }
+//        });
+
+        pnlBuscar = (RelativeLayout)findViewById(R.id.pnlBuscar);
+
     }
 
     private void setMapZoomSmooth(float zoom) {
@@ -164,35 +204,53 @@ public class MapsActivity extends FragmentActivity
         }
     }
 
-    private class SearchAddressTask extends AsyncTask<String, Integer, CameraUpdate> {
+    private class SearchAddressTask extends AsyncTask<String, Integer, GeocodingResult[]> {
 
         protected void onPreExecute() {
             super.onPreExecute();
             setMapZoomSmooth(getMap().getCameraPosition().zoom - 2);
+
         }
 
-        protected CameraUpdate doInBackground(String... SearchAddresses) {
+        protected GeocodingResult[] doInBackground(String... SearchAddresses) {
             int count = SearchAddresses.length;
             CameraUpdate newCamera = null;
-            for (int i = 0; i < count; i++) {
-                LatLng found = GeoCoding.getLatLngFromAddress(SearchAddresses[i]);
-                newCamera = CameraUpdateFactory.newLatLng(found);
-
-                publishProgress((int) ((i / (float) count) * 100));
-                // Escape early if cancel() is called
-                if (isCancelled()) break;
-            }
-            return newCamera;
+            if (SearchAddresses.length > 0)
+                return GeoCoding.getGeocodingResultFromAddress(SearchAddresses[0]);
+            else
+                return null;
         }
 
         protected void onProgressUpdate(Integer... progress) {
             //setProgressPercent(progress[0]);
         }
 
-        protected void onPostExecute(CameraUpdate result) {
-            getMap().moveCamera(result);
+        protected void onPostExecute(GeocodingResult[] results) {
+            Toast msg=Toast.makeText(MapsActivity.this, ".", Toast.LENGTH_SHORT);;
+            msg.show();
+
+            CameraUpdate newCamera = CameraUpdateFactory.scrollBy(0, 0);
+            if(results!=null) {
+                msg.setText("..");
+                if (results.length == 1) {
+                    newCamera = CameraUpdateFactory.newLatLng(
+                            new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
+                } else {
+                    spnLista.setAdapter(
+                            new ArrayAdapter<GeocodingResult>(MapsActivity.this,
+                                    android.R.layout.simple_spinner_dropdown_item,
+                                    results));
+
+                    msg.setText("...");
+                    pnlBuscar.setVisibility(View.GONE);
+                    spnLista.setVisibility(View.VISIBLE);
+                    msg.setText("....");
+                }
+            }else
+                msg.setText("Nenhum resultado encotrado...");
+            getMap().moveCamera(newCamera);
             setMapZoomSmooth(getMap().getMaxZoomLevel() - 6);
-            //Notificacao.showAlert(getApplicationContext(), "Search " + (result != null ? "done" : "error") + ".").show();
+            getMap().moveCamera(newCamera);
         }
     }
 
@@ -312,16 +370,16 @@ public class MapsActivity extends FragmentActivity
 
         // Point the map's listeners at the listeners implemented by the cluster
         // manager.
-        getMap().setOnCameraChangeListener(mClusterManager);
+//        getMap().setOnCameraChangeListener(mClusterManager);
+//
+        getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
+            @Override
+            public void onCameraChange(CameraPosition cameraPosition) {
 
-//        getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
-//            @Override
-//            public void onCameraChange(CameraPosition cameraPosition) {
-//
-//                new LoadItemsTask().execute(cameraPosition);
-//
-//            }
-//        });
+                new LoadItemsTask().execute(1);
+                mClusterManager.onCameraChange(cameraPosition);
+            }
+        });
 
         getMap().setOnMarkerClickListener(mClusterManager);
 
@@ -370,23 +428,22 @@ public class MapsActivity extends FragmentActivity
 
     private class LoadItemsTask extends AsyncTask<Integer, Integer, List<PontoDeTroca>> {
         GoogleMap map = null;
-        double latMax = 0;
-        double lngMax = 0;
-        double latMin = 0;
-        double lngMin = 0;
-        float zoom = 0;
+        String sURL;
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
             map = getMap();
-
+            VisibleRegion vb = map.getProjection().getVisibleRegion();
             // https://developers.google.com/android/reference/com/google/android/gms/maps/model/VisibleRegion
-            latMax = map.getProjection().getVisibleRegion().farLeft.latitude;
-            latMin = map.getProjection().getVisibleRegion().nearLeft.latitude;
-            lngMax = map.getProjection().getVisibleRegion().farRight.longitude;
-            lngMin = map.getProjection().getVisibleRegion().nearRight.longitude;
-            zoom = map.getCameraPosition().zoom;
+            double latMax = Math.max(vb.farLeft.latitude, vb.nearLeft.latitude);
+            double latMin = Math.min(vb.farLeft.latitude, vb.nearLeft.latitude);
+            double lngMax = Math.max(vb.farRight.longitude, vb.nearRight.longitude);
+            double lngMin = Math.min(vb.farRight.longitude, vb.nearRight.longitude);
+            float zoom = map.getCameraPosition().zoom;
+
+            sURL = "http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&" +
+                    "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + zoom;
 
         }
 
@@ -396,9 +453,8 @@ public class MapsActivity extends FragmentActivity
             // http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-18.808692664927005&lngMax=-31.80579899520876&latMin=-25.010725932824087&lngMin=-54.17868717880251&zoomAtual=7
 
             List<PontoDeTroca> items = null;
+
             try {
-                String sURL = "http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&" +
-                        "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + zoom;
 
                 URL url = new URL(sURL);
                 // Given a string representation of a URL, sets up a connection and gets
@@ -546,5 +602,6 @@ public class MapsActivity extends FragmentActivity
             // Always render clusters.
             return cluster.getSize() > 1;
         }
+
     }
 }

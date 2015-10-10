@@ -3,7 +3,7 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     android:orientation="vertical">
-    <RelativeLayout
+    <RelativeLayout android:id="@+id/pnlBuscar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal">
@@ -40,6 +40,11 @@
             android:layout_marginRight="6dp" />
 
     </RelativeLayout>
+
+    <Spinner android:id="@+id/spnLista"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"></Spinner>
 
     <fragment
         xmlns:android="http://schemas.android.com/apk/res/android"

@@ -37,15 +37,15 @@ public abstract class GeoCoding {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        Log.i(MapsActivity.TAG, "qtde: " + results.length);
-        Log.i(MapsActivity.TAG, results[0].formattedAddress);
+//        Log.i(MapsActivity.TAG, "qtde: " + results.length);
+//        Log.i(MapsActivity.TAG, results[0].formattedAddress);
 
-        for (int i = 0; i < results.length; i++) {
-
-            Log.i(MapsActivity.TAG,"resultado "+i+": "+ results[i].formattedAddress+
-                    "/ geometry.location: "+results[i].geometry.location.toUrlValue()+
-                    "/ geometry.locationType: "+results[i].geometry.locationType.toUrlValue());
-        }
+//        for (int i = 0; i < results.length; i++) {
+//
+//            Log.i(MapsActivity.TAG,"resultado "+i+": "+ results[i].formattedAddress+
+//                    "/ geometry.location: "+results[i].geometry.location.toUrlValue()+
+//                    "/ geometry.locationType: "+results[i].geometry.locationType.toUrlValue());
+//        }
 
         if(results.length>0)
             return new LatLng(results[0].geometry.location.lat,results[0].geometry.location.lng);
@@ -94,5 +94,16 @@ public abstract class GeoCoding {
         });
 
         */
+    }
+
+    public static GeocodingResult[] getGeocodingResultFromAddress(String addressText) {
+        GeoApiContext context = new GeoApiContext().setApiKey(google_geocoding_key);
+        GeocodingResult[] results = new GeocodingResult[0];
+        try {
+            results = GeocodingApi.geocode(context, addressText).await();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return results;
     }
 }

@@ -52,6 +52,7 @@ public class XMLMapMarkerParser {
         List<PontoDeTroca> entries = new ArrayList<PontoDeTroca>();
 
         parser.require(XmlPullParser.START_TAG, ns, "markers");
+
         while (parser.next() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) {
                 continue;
@@ -78,7 +79,7 @@ public class XMLMapMarkerParser {
         String prefixo = null;
         String cData = null;
 
-        while (parser.next() != XmlPullParser.END_TAG) {
+        while (parser.nextToken() != XmlPullParser.END_TAG) {
             if (parser.getEventType() != XmlPullParser.START_TAG) {
                 continue;
             }
