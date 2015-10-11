@@ -108,5 +108,8 @@
     <orderEntry type="library" exported="" name="joda-time-2.4" level="project" />
     <orderEntry type="library" exported="" name="play-services-location-8.1.0" level="project" />
     <orderEntry type="library" exported="" name="support-annotations-23.0.1" level="project" />
+    <orderEntry type="library" exported="" name="effects-android-23" level="project" />
+    <orderEntry type="library" exported="" name="usb-android-23" level="project" />
+    <orderEntry type="library" exported="" name="maps-android-23" level="project" />
   </component>
 </module>

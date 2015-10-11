@@ -1,9 +1,6 @@
 package br.com.tisengenharia.tisapp;
 
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
@@ -11,14 +8,11 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.RelativeLayout;
-import android.widget.SimpleAdapter;
 import android.widget.Spinner;
 import android.widget.Toast;
 
@@ -28,15 +22,11 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
-import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.maps.model.VisibleRegion;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.maps.android.clustering.Cluster;
 import com.google.maps.android.clustering.ClusterManager;
-import com.google.maps.android.clustering.view.DefaultClusterRenderer;
-import com.google.maps.android.ui.IconGenerator;
 import com.google.maps.model.GeocodingResult;
 
 import org.xmlpull.v1.XmlPullParserException;
@@ -45,13 +35,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 import br.com.tisengenharia.tisapp.model.PontoDeTroca;
 import br.com.tisengenharia.utils.GeoCoding;
-import br.com.tisengenharia.utils.MultiDrawable;
 import br.com.tisengenharia.utils.XMLMapMarkerParser;
 
 public class MapsActivity extends FragmentActivity
@@ -70,7 +59,13 @@ public class MapsActivity extends FragmentActivity
 
     private LatLng llMeuLugar;
 
-    private ClusterManager<PontoDeTroca> mClusterManager;
+    protected static long LoadItemsTaskControle = new Date().getTime();
+    private double latMax = 0;
+    private double latMin = 0;
+    private double lngMax = 0;
+    private double lngMin = 0;
+
+    public ClusterManager<PontoDeTroca> mClusterManager;
 
     // Whether the display should be refreshed.
     public static boolean refreshDisplay = true;
@@ -122,6 +117,30 @@ public class MapsActivity extends FragmentActivity
 
     }
 
+    private double zoom = 0;
+
+    private void setMapZoomSmooth(float zoom) {
+        while (getMap().getCameraPosition().zoom != zoom) {
+            float zoomAtual = getMap().getCameraPosition().zoom;
+            float zoomNovo = zoomAtual;
+            Log.i(TAG, "ZoomAtual: " + zoomAtual);
+            if (Math.abs(zoomAtual - zoom) <= 1)
+                zoomNovo = zoom;
+                //else if (zoomAtual > zoom)
+                //    zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
+            else// if (zoomAtual < zoom)
+                zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
+
+            getMap().moveCamera(CameraUpdateFactory.zoomTo(zoomNovo));
+            try {
+                //Thread.yield();
+                Thread.sleep(100, 0);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "aguardando animação de zoomSmooth:: " + e.getMessage());
+            }
+        }
+    }
+
     private void setUpEvents() {
         btnBuscar = (Button) findViewById(R.id.btnBuscar);
         btnBuscar.setOnClickListener(new View.OnClickListener() {
@@ -152,7 +171,7 @@ public class MapsActivity extends FragmentActivity
             }
         });
 
-        spnLista = (Spinner)findViewById(R.id.spnLista);
+        spnLista = (Spinner) findViewById(R.id.spnLista);
         spnLista.setVisibility(View.GONE);
         spnLista.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
@@ -178,80 +197,8 @@ public class MapsActivity extends FragmentActivity
 //            }
 //        });
 
-        pnlBuscar = (RelativeLayout)findViewById(R.id.pnlBuscar);
+        pnlBuscar = (RelativeLayout) findViewById(R.id.pnlBuscar);
 
-    }
-
-    private void setMapZoomSmooth(float zoom) {
-        while (getMap().getCameraPosition().zoom != zoom) {
-            float zoomAtual = getMap().getCameraPosition().zoom;
-            float zoomNovo = zoomAtual;
-            Log.i(TAG, "ZoomAtual: " + zoomAtual);
-            if (Math.abs(zoomAtual - zoom) <= 1)
-                zoomNovo = zoom;
-                //else if (zoomAtual > zoom)
-                //    zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
-            else// if (zoomAtual < zoom)
-                zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
-
-            getMap().moveCamera(CameraUpdateFactory.zoomTo(zoomNovo));
-            try {
-                //Thread.yield();
-                Thread.sleep(100, 0);
-            } catch (InterruptedException e) {
-                Log.e(TAG, "aguardando animação de zoomSmooth:: " + e.getMessage());
-            }
-        }
-    }
-
-    private class SearchAddressTask extends AsyncTask<String, Integer, GeocodingResult[]> {
-
-        protected void onPreExecute() {
-            super.onPreExecute();
-            setMapZoomSmooth(getMap().getCameraPosition().zoom - 2);
-
-        }
-
-        protected GeocodingResult[] doInBackground(String... SearchAddresses) {
-            int count = SearchAddresses.length;
-            CameraUpdate newCamera = null;
-            if (SearchAddresses.length > 0)
-                return GeoCoding.getGeocodingResultFromAddress(SearchAddresses[0]);
-            else
-                return null;
-        }
-
-        protected void onProgressUpdate(Integer... progress) {
-            //setProgressPercent(progress[0]);
-        }
-
-        protected void onPostExecute(GeocodingResult[] results) {
-            Toast msg=Toast.makeText(MapsActivity.this, ".", Toast.LENGTH_SHORT);;
-            msg.show();
-
-            CameraUpdate newCamera = CameraUpdateFactory.scrollBy(0, 0);
-            if(results!=null) {
-                msg.setText("..");
-                if (results.length == 1) {
-                    newCamera = CameraUpdateFactory.newLatLng(
-                            new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
-                } else {
-                    spnLista.setAdapter(
-                            new ArrayAdapter<GeocodingResult>(MapsActivity.this,
-                                    android.R.layout.simple_spinner_dropdown_item,
-                                    results));
-
-                    msg.setText("...");
-                    pnlBuscar.setVisibility(View.GONE);
-                    spnLista.setVisibility(View.VISIBLE);
-                    msg.setText("....");
-                }
-            }else
-                msg.setText("Nenhum resultado encotrado...");
-            getMap().moveCamera(newCamera);
-            setMapZoomSmooth(getMap().getMaxZoomLevel() - 6);
-            getMap().moveCamera(newCamera);
-        }
     }
 
     private void btnBuscarOnClick(View v) {
@@ -333,7 +280,7 @@ public class MapsActivity extends FragmentActivity
 
     }
 
-    private GoogleMap getMap() {
+    public GoogleMap getMap() {
         return mMap;
     }
 
@@ -347,7 +294,7 @@ public class MapsActivity extends FragmentActivity
         // (Activity extends context, so we can pass 'this' in the constructor.)
         mClusterManager = new ClusterManager<PontoDeTroca>(this, getMap());
 
-        mClusterManager.setRenderer(new PontoDeTrocaRenderer());
+        mClusterManager.setRenderer(new PontoDeTrocaRenderer(this));
         getMap().setOnCameraChangeListener(mClusterManager);
         getMap().setOnMarkerClickListener(mClusterManager);
         getMap().setOnInfoWindowClickListener(mClusterManager);
@@ -383,8 +330,6 @@ public class MapsActivity extends FragmentActivity
 
         getMap().setOnMarkerClickListener(mClusterManager);
 
-        // Add cluster items (markers) to the cluster manager.
-        //addItems();
     }
 
     @Override
@@ -412,39 +357,161 @@ public class MapsActivity extends FragmentActivity
         for (PontoDeTroca pt : cluster.getItems()) {
             lista.append(pt.getCDATA() + "<br> ");
         }
-        Toast.makeText(this, lista.toString(), Toast.LENGTH_SHORT).show();
+        Toast.makeText(MapsActivity.this, lista.toString(), Toast.LENGTH_SHORT).show();
     }
 
     @Override
     public boolean onClusterItemClick(PontoDeTroca item) {
-        // Does nothing, but you could go into the user's profile page, for example.
-        return false;
+        Toast.makeText(MapsActivity.this, "clitem "+ item.getPrefixo()+item.getBaloonInfo(), Toast.LENGTH_LONG).show();
+
+        return true;
     }
 
     @Override
     public void onClusterItemInfoWindowClick(PontoDeTroca item) {
-        // Does nothing, but you could go into the user's profile page, for example.
+        Toast.makeText(MapsActivity.this, "clitem-infownd "+ item.getPrefixo()+item.getBaloonInfo(), Toast.LENGTH_LONG).show();
+
+    }
+
+    @Deprecated
+    private void addItems() {
+
+        // Set some lat/lng coordinates to start with.
+        double lat = -23.6117561;
+        double lng = -46.6420428;
+
+        mClusterManager.clearItems();
+
+        // Add ten cluster items in close proximity, for purposes of this example.
+        for (int i = 0; i < 10; i++) {
+            double offseta = (i / 420d) - (i - 3 % 6) / 90d;
+            double offsetb = (i * i * ((i % 2 == 0) ? -0.3 : 0.4)) / 660d;
+            lat = lat - offseta;
+            lng = lng + offsetb;
+            int id = 6819;
+            String prefixo = "cooperativa",
+                    cData = "Demo " + i + ": " + new Date().getTime() % 10000;
+
+            PontoDeTroca offsetItem = new PontoDeTroca(lat, lng, id, prefixo, cData, R.drawable.marcadorpadrao);
+
+            mClusterManager.addItem(offsetItem);
+        }
+
+    }
+
+    private class SearchAddressTask extends AsyncTask<String, Integer, GeocodingResult[]> {
+
+        protected void onPreExecute() {
+            super.onPreExecute();
+            setMapZoomSmooth(getMap().getCameraPosition().zoom - 2);
+
+        }
+
+        protected GeocodingResult[] doInBackground(String... SearchAddresses) {
+            int count = SearchAddresses.length;
+            CameraUpdate newCamera = null;
+            if (SearchAddresses.length > 0)
+                return GeoCoding.getGeocodingResultFromAddress(SearchAddresses[0]);
+            else
+                return null;
+        }
+
+        protected void onProgressUpdate(Integer... progress) {
+            //setProgressPercent(progress[0]);
+        }
+
+        protected void onPostExecute(GeocodingResult[] results) {
+            Toast msg = Toast.makeText(MapsActivity.this, ".", Toast.LENGTH_SHORT);
+            ;
+            msg.show();
+
+            CameraUpdate newCamera = CameraUpdateFactory.scrollBy(0, 0);
+            if (results != null) {
+                msg.setText("..");
+                if (results.length == 1) {
+                    newCamera = CameraUpdateFactory.newLatLng(
+                            new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
+                } else {
+                    spnLista.setAdapter(
+                            new ArrayAdapter<GeocodingResult>(MapsActivity.this,
+                                    android.R.layout.simple_spinner_dropdown_item,
+                                    results));
+
+                    msg.setText("...");
+                    pnlBuscar.setVisibility(View.GONE);
+                    spnLista.setVisibility(View.VISIBLE);
+                    msg.setText("....");
+                }
+            } else
+                msg.setText("Nenhum resultado encotrado...");
+            getMap().moveCamera(newCamera);
+            setMapZoomSmooth(getMap().getMaxZoomLevel() - 6);
+            getMap().moveCamera(newCamera);
+        }
     }
 
     private class LoadItemsTask extends AsyncTask<Integer, Integer, List<PontoDeTroca>> {
-        GoogleMap map = null;
         String sURL;
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            map = getMap();
-            VisibleRegion vb = map.getProjection().getVisibleRegion();
+
+            double lzoom = getMap().getCameraPosition().zoom;
+
+            if ((new Date().getTime() - LoadItemsTaskControle <= 4000) &&
+                    (lzoom == zoom)) {
+                Log.v("LoadItemsTask", "rerun time control to dont run over and over again successively: " + (new Date().getTime() - LoadItemsTaskControle));
+                cancel(true);
+                return;
+            } else if (Math.abs(lzoom - zoom) < 0.6 && lzoom != zoom) {
+                Log.v("LoadItemsTask", "zoom was not enough to reload: " + lzoom + "/" + zoom);
+                this.cancel(true);
+                return;
+            }
+
             // https://developers.google.com/android/reference/com/google/android/gms/maps/model/VisibleRegion
-            double latMax = Math.max(vb.farLeft.latitude, vb.nearLeft.latitude);
-            double latMin = Math.min(vb.farLeft.latitude, vb.nearLeft.latitude);
-            double lngMax = Math.max(vb.farRight.longitude, vb.nearRight.longitude);
-            double lngMin = Math.min(vb.farRight.longitude, vb.nearRight.longitude);
-            float zoom = map.getCameraPosition().zoom;
+            LatLngBounds vb = getMap().getProjection().getVisibleRegion().latLngBounds;
+
+//            if ((Math.abs(latMax - vb.northeast.latitude) < latMax*0.2) ||
+//                    (Math.abs(lngMin - vb.southwest.longitude) < lngMin*0.2) ||
+//                    (Math.abs(latMin - vb.southwest.latitude) < latMin*0.2) ||
+//                    (Math.abs(lngMax - vb.northeast.longitude) < lngMax*0.2)) {
+//                Log.v("LoadItemsTask", "Visible Region not changed too much: latMax:" + Math.abs(latMax - vb.northeast.latitude) +
+//                        "lngMin:" + Math.abs(lngMin - vb.southwest.longitude) +
+//                        "latMin:" + Math.abs(latMin - vb.southwest.latitude) +
+//                        "lngMax:" + Math.abs(lngMax - vb.northeast.longitude));
+//                this.cancel(true);
+//                return;
+//            }
+            LoadItemsTaskControle = new Date().getTime();
+            zoom = lzoom;
+
+
+            latMax = vb.northeast.latitude;
+            lngMin = vb.southwest.longitude;
+            latMin = vb.southwest.latitude;
+            lngMax = vb.northeast.longitude;
+
+            // adiciona um margem para os pontos carregados na tela
+            double margem = 0.15;
+            latMax = latMax + (latMax - latMin) * margem;
+            latMin = latMin - (latMax - latMin) * margem;
+            lngMax = lngMax + (lngMax - lngMin) * margem;
+            lngMin = lngMin - (lngMax - lngMin) * margem;
 
             sURL = "http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&" +
-                    "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + zoom;
+                    "latMax=" + latMax + "&lngMax=" + lngMax + "&latMin=" + latMin + "&lngMin=" + lngMin + "&zoomAtual=" + String.valueOf(zoom).replace(".0", "");
+            //sURL = "http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-23.03870267611196&lngMax=-46.288739297683264&latMin=-24.224626557802793&lngMin=-47.37381772785905&zoomAtual=12";
 
+            Log.d("LoadItemsTask", " rota URL: " + sURL);
+
+        }
+
+        @Override
+        protected void onCancelled() {
+            Log.d("LoadItemsTask", "Cancelado.");
+            super.onCancelled();
         }
 
         @Override
@@ -453,6 +520,17 @@ public class MapsActivity extends FragmentActivity
             // http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-18.808692664927005&lngMax=-31.80579899520876&latMin=-25.010725932824087&lngMin=-54.17868717880251&zoomAtual=7
 
             List<PontoDeTroca> items = null;
+            if (isCancelled()) return null;
+            //items = XMLMapMarkerParser.makeATest();
+//            StringReader sr = new StringReader(getString(R.string.markersxml));
+//            XMLMapMarkerParser xmlMapMarkerParser = new XMLMapMarkerParser();
+//            try {
+//                items = xmlMapMarkerParser.parse(sr);
+//            } catch (XmlPullParserException e) {
+//                e.printStackTrace();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
 
             try {
 
@@ -468,17 +546,14 @@ public class MapsActivity extends FragmentActivity
                     urlConnection.setDoInput(true);
                     // Starts the query
                     urlConnection.connect();
-
+                    if (isCancelled()) return null;
                     InputStream zip = null;
                     try {
                         zip = (GZIPInputStream) urlConnection.getContent();
-
                         try {
                             XMLMapMarkerParser xmlMapMarkerParser = new XMLMapMarkerParser();
 
                             items = xmlMapMarkerParser.parse(zip);
-
-                            return items;
 
                         } catch (XmlPullParserException e) {
                             e.printStackTrace();
@@ -501,107 +576,26 @@ public class MapsActivity extends FragmentActivity
 
         @Override
         protected void onPostExecute(List<PontoDeTroca> returnValue) {
+
+            Log.i("LoadItemsTask", "Foram encontrados " + returnValue.size() + " marcadores");
             if (returnValue != null) {
-                mClusterManager.cluster();
+                if (returnValue.size() > 0) {
+                    mClusterManager.clearItems();
+                    mClusterManager.addItems(returnValue);
+                    Log.d("LoadItemsTask", "itens adicionados ao cluster manager. Re-clustering...");
+                    mClusterManager.cluster();
+                }
             } else {
                 try {
                     Thread.sleep(100, 0);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+                Log.d("LoadItemsTask", "tentando executar novamente");
                 new LoadItemsTask().execute(0);
             }
+            LoadItemsTaskControle = 0;
         }
     }
 
-    private void addItems() {
-
-        // Set some lat/lng coordinates to start with.
-        double lat = -23.6117561;
-        double lng = -46.6420428;
-
-        mClusterManager.clearItems();
-
-        // Add ten cluster items in close proximity, for purposes of this example.
-        for (int i = 0; i < 30; i++) {
-            double offseta = (i / 420d) - (i - 3 % 6) / 90d;
-            double offsetb = (i * i * ((i % 2 == 0) ? -0.3 : 0.4)) / 660d;
-            lat = lat - offseta;
-            lng = lng + offsetb;
-            int id = 6819;
-            String prefixo = "cooperativa",
-                    cData = "Cooperlix " + i + " - Cooperativa de Trabalho, Produção e Reciclagem de Presidente Prudente";
-
-            PontoDeTroca offsetItem = new PontoDeTroca(lat, lng, id, prefixo, cData, R.drawable.marcadorpadrao);
-
-            mClusterManager.addItem(offsetItem);
-        }
-
-    }
-
-    /**
-     * Copyright 2013 Google Inc.
-     * Adapted class from Google Maps demo CustomMarkerClusteringDemoActivity
-     */
-    private class PontoDeTrocaRenderer extends DefaultClusterRenderer<PontoDeTroca> {
-        private final IconGenerator mIconGenerator = new IconGenerator(getApplicationContext());
-        private final IconGenerator mClusterIconGenerator = new IconGenerator(getApplicationContext());
-        private final ImageView mImageView;
-        private final ImageView mClusterImageView;
-        private final int mDimension;
-
-        public PontoDeTrocaRenderer() {
-            super(getApplicationContext(), getMap(), mClusterManager);
-
-            View multiProfile = getLayoutInflater().inflate(R.layout.multi_profile, null);
-            mClusterIconGenerator.setContentView(multiProfile);
-            mClusterImageView = (ImageView) multiProfile.findViewById(R.id.image);
-
-            mImageView = new ImageView(getApplicationContext());
-            mDimension = (int) getResources().getDimension(R.dimen.custom_profile_image);
-            mImageView.setLayoutParams(new ViewGroup.LayoutParams(mDimension, mDimension));
-            int padding = (int) getResources().getDimension(R.dimen.custom_profile_padding);
-            mImageView.setPadding(padding, padding, padding, padding);
-            mIconGenerator.setContentView(mImageView);
-        }
-
-        @Override
-        protected void onBeforeClusterItemRendered(PontoDeTroca PontoDeTroca, MarkerOptions markerOptions) {
-            // Draw a single PontoDeTroca.
-            // Set the info window to show their name.
-            mImageView.setImageResource(PontoDeTroca.profilePhoto);
-            Bitmap icon = mIconGenerator.makeIcon();
-            markerOptions.icon(BitmapDescriptorFactory.fromBitmap(icon)).title(PontoDeTroca.getCDATA());
-        }
-
-        @Override
-        protected void onBeforeClusterRendered(Cluster<PontoDeTroca> cluster, MarkerOptions markerOptions) {
-            // Draw multiple people.
-            // Note: this method runs on the UI thread. Don't spend too much time in here (like in this example).
-            List<Drawable> profilePhotos = new ArrayList<Drawable>(Math.min(4, cluster.getSize()));
-            int width = mDimension;
-            int height = mDimension;
-
-            for (PontoDeTroca p : cluster.getItems()) {
-                // Draw 4 at most.
-                if (profilePhotos.size() == 4) break;
-                Drawable drawable = getResources().getDrawable(p.profilePhoto);
-                drawable.setBounds(0, 0, width, height);
-                profilePhotos.add(drawable);
-            }
-            MultiDrawable multiDrawable = new MultiDrawable(profilePhotos);
-            multiDrawable.setBounds(0, 0, width, height);
-
-            mClusterImageView.setImageDrawable(multiDrawable);
-            Bitmap icon = mClusterIconGenerator.makeIcon(String.valueOf(cluster.getSize()));
-            markerOptions.icon(BitmapDescriptorFactory.fromBitmap(icon));
-        }
-
-        @Override
-        protected boolean shouldRenderAsCluster(Cluster cluster) {
-            // Always render clusters.
-            return cluster.getSize() > 1;
-        }
-
-    }
 }

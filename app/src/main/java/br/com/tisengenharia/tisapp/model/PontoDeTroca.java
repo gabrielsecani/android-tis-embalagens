@@ -21,6 +21,7 @@ public class PontoDeTroca implements ClusterItem {
         this.prefixo = prefixo;
         this.cData = cData;
         this.profilePhoto = profilePhoto;
+        this.baloonInfo="";
 
     }
 
@@ -41,4 +42,9 @@ public class PontoDeTroca implements ClusterItem {
         return baloonInfo;
     }
 
+    @Override
+    public String toString() {
+
+        return "PontoDeTroca (lat:" + this.getPosition().latitude + ", lng:" + this.getPosition().longitude + ", id:" + getId() + ", prefixo:" + getPrefixo() + ", cData:" + cData + ", profilePhoto:" + profilePhoto + ")";
+    }
 }
