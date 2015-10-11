@@ -1,7 +1,12 @@
 <resources>
     <string name="app_name" translatable="false">TIS</string>
     <string name="title_activity_maps" translatable="false">TIS</string>
-    <string name="search_hint">Search</string>
     <string name="inputtext_hint">Looking for...</string>
-
+    <string name="search_hint">Search</string>
+    <string name="search_error">Something wrong into the search...</string>
+    <string name="searchingFor">Searching</string>
+    <string name="search_nodatafound">No result found.</string>
+    <string name="search_toomanyfound">Too many results...</string>
+    <string name="pick_one">Pick one of the list</string>
+    <string name="info_window_negative_button">Cancelar</string>
 </resources>

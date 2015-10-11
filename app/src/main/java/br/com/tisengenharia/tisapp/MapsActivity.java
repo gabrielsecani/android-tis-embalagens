@@ -1,5 +1,8 @@
 package br.com.tisengenharia.tisapp;
 
+import android.app.AlertDialog;
+import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -7,13 +10,12 @@ import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.RelativeLayout;
-import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.GoogleApiAvailability;
@@ -35,6 +37,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
@@ -53,8 +57,7 @@ public class MapsActivity extends FragmentActivity
     private GoogleMap mMap; // Might be null if Google Play services APK is not available.
     private EditText txtBusca;
     private Button btnBuscar;
-    private RelativeLayout pnlBuscar;
-    private Spinner spnLista;
+
     //
 
     private LatLng llMeuLugar;
@@ -64,6 +67,7 @@ public class MapsActivity extends FragmentActivity
     private double latMin = 0;
     private double lngMax = 0;
     private double lngMin = 0;
+    private double zoom = 0;
 
     public ClusterManager<PontoDeTroca> mClusterManager;
 
@@ -100,14 +104,15 @@ public class MapsActivity extends FragmentActivity
 
         if (getMap() != null)
             if (getMap().getMyLocation() != null)
-                llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
-
+                //llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
+                llMeuLugar = getMap().getCameraPosition().target;
         // We need an Editor object to make preference changes.
         // All objects are from android.context.Context
         SharedPreferences settings = getSharedPreferences(LAST_LOCATION, 0);
         SharedPreferences.Editor editor = settings.edit();
         editor.putString("LastLatitude", String.valueOf(llMeuLugar.latitude));
         editor.putString("LastLongitude", String.valueOf(llMeuLugar.longitude));
+        editor.putString("LastZoom", String.valueOf(getMap().getCameraPosition().zoom));
 
         editor.apply();
         // Commit the edits!
@@ -117,10 +122,9 @@ public class MapsActivity extends FragmentActivity
 
     }
 
-    private double zoom = 0;
-
     private void setMapZoomSmooth(float zoom) {
         while (getMap().getCameraPosition().zoom != zoom) {
+            LoadItemsTaskControle = new Date().getTime();
             float zoomAtual = getMap().getCameraPosition().zoom;
             float zoomNovo = zoomAtual;
             Log.i(TAG, "ZoomAtual: " + zoomAtual);
@@ -141,80 +145,17 @@ public class MapsActivity extends FragmentActivity
         }
     }
 
-    private void setUpEvents() {
-        btnBuscar = (Button) findViewById(R.id.btnBuscar);
-        btnBuscar.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Log.d(TAG, "Buscando: " + String.valueOf(txtBusca.getText()));
-
-                btnBuscarOnClick(v);
-            }
-        });
-
-        txtBusca = (EditText) findViewById(R.id.txtBusca);
-        txtBusca.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                Log.d(TAG, "Buscar por: " + s);
-                btnBuscar.setEnabled(s.length() > 2);
-            }
-        });
-
-        spnLista = (Spinner) findViewById(R.id.spnLista);
-        spnLista.setVisibility(View.GONE);
-        spnLista.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                GeocodingResult result = (GeocodingResult) parent.getAdapter().getItem(position);
-                txtBusca.setText(result.formattedAddress);
-                getMap().moveCamera(CameraUpdateFactory.newLatLng(
-                        new LatLng(result.geometry.location.lat, result.geometry.location.lng)));
-                pnlBuscar.setVisibility(View.VISIBLE);
-                spnLista.setVisibility(View.GONE);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-                pnlBuscar.setVisibility(View.VISIBLE);
-                spnLista.setVisibility(View.GONE);
-            }
-        });
-//        spnLista.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-//            @Override
-//            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-//
-//            }
-//        });
-
-        pnlBuscar = (RelativeLayout) findViewById(R.id.pnlBuscar);
-
-    }
-
-    private void btnBuscarOnClick(View v) {
-        //showNotification();
-        //getMap().moveCamera(CameraUpdateFactory.zoomTo(getMap().getMinZoomLevel()));
-        //getMap().moveCamera(CameraUpdateFactory.newLatLng(new GeoCoding().getLatLngFromAddress(String.valueOf(txtBusca.getText()))));
-        //llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.6117561, -46.6420428) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
-        //getMap().moveCamera(CameraUpdateFactory.zoomTo(getMap().getMaxZoomLevel()));
-
-        new SearchAddressTask().execute(String.valueOf(txtBusca.getText()));
-    }
-
     @Override
     protected void onResume() {
         super.onResume();
         setUpMapIfNeeded();
+        SharedPreferences settings = getSharedPreferences(LAST_LOCATION, 0);
+        llMeuLugar = new LatLng(
+                Double.parseDouble(settings.getString("LastLatitude", "-23.6117561")),
+                Double.parseDouble(settings.getString("LastLongitude", "-46.6420428")));
+        float zmm = Float.parseFloat(settings.getString("LastZoom", "13"));
+        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(llMeuLugar, zmm));
+
     }
 
     /**
@@ -343,10 +284,34 @@ public class MapsActivity extends FragmentActivity
 
     @Override
     public boolean onClusterClick(Cluster<PontoDeTroca> cluster) {
-
         // Show a toast with some info when the cluster is clicked.
-        String firstName = cluster.getItems().iterator().next().getCDATA();
-        Toast.makeText(this, cluster.getSize() + " (" + firstName + ", ...)", Toast.LENGTH_SHORT).show();
+//        String firstName = cluster.getItems().iterator().next().getCDATA();
+//        Toast.makeText(this, "(" + firstName + ", ...)", Toast.LENGTH_SHORT).show();
+//        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(cluster.getPosition(), getMap().getCameraPosition().zoom + 1));
+
+        final Collection<PontoDeTroca> array_cluster = cluster.getItems();
+        ArrayList<CharSequence> listaCharSequences = new ArrayList<>(array_cluster.size());
+        for (PontoDeTroca pdt : array_cluster) {
+            listaCharSequences.add(pdt.getCDATA());
+        }
+
+        AlertDialog.Builder ad = new AlertDialog.Builder(this).setTitle(getString(R.string.info_window_tittle))
+                .setAdapter(new ArrayAdapter(MapsActivity.this, android.R.layout.simple_list_item_1, listaCharSequences), new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        PontoDeTroca pt = (PontoDeTroca) array_cluster.toArray()[which];
+                        float zoom = (pt.getCDATA().isEmpty())?(getMap().getCameraPosition().zoom + 1):getMap().getMaxZoomLevel()-4;
+                        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(pt.getPosition(), zoom));
+                    }
+                })
+                .setNegativeButton(R.string.info_window_negative_button, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+        ad.create().show();
+
         return true;
     }
 
@@ -357,11 +322,13 @@ public class MapsActivity extends FragmentActivity
         for (PontoDeTroca pt : cluster.getItems()) {
             lista.append(pt.getCDATA() + "<br> ");
         }
+
         Toast.makeText(MapsActivity.this, lista.toString(), Toast.LENGTH_SHORT).show();
     }
 
     @Override
     public boolean onClusterItemClick(PontoDeTroca item) {
+
         Toast.makeText(MapsActivity.this, "clitem "+ item.getPrefixo()+item.getBaloonInfo(), Toast.LENGTH_LONG).show();
 
         return true;
@@ -369,8 +336,8 @@ public class MapsActivity extends FragmentActivity
 
     @Override
     public void onClusterItemInfoWindowClick(PontoDeTroca item) {
-        Toast.makeText(MapsActivity.this, "clitem-infownd "+ item.getPrefixo()+item.getBaloonInfo(), Toast.LENGTH_LONG).show();
 
+        Toast.makeText(MapsActivity.this, "clitem-infownd " + item.getPrefixo() + item.getBaloonInfo(), Toast.LENGTH_LONG).show();
     }
 
     @Deprecated
@@ -399,12 +366,53 @@ public class MapsActivity extends FragmentActivity
 
     }
 
+    private void setUpEvents() {
+        btnBuscar = (Button) findViewById(R.id.btnBuscar);
+        btnBuscar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG, "Buscando: " + String.valueOf(txtBusca.getText()));
+                new SearchAddressTask().execute(String.valueOf(txtBusca.getText()));
+            }
+        });
+
+        txtBusca = (EditText) findViewById(R.id.txtBusca);
+        txtBusca.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                return btnBuscar.callOnClick();
+            }
+        });
+        txtBusca.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                Log.d(TAG, "Buscar por: " + s);
+                btnBuscar.setEnabled(s.length() > 2);
+            }
+        });
+
+    }
+
     private class SearchAddressTask extends AsyncTask<String, Integer, GeocodingResult[]> {
+        ProgressDialog pd;
 
         protected void onPreExecute() {
             super.onPreExecute();
-            setMapZoomSmooth(getMap().getCameraPosition().zoom - 2);
-
+//            setMapZoomSmooth(getMap().getCameraPosition().zoom - 2);
+            pd = new ProgressDialog(MapsActivity.this);
+            pd.setIndeterminate(true);
+            pd.setMessage(getString(R.string.searchingFor) + " " + String.valueOf(txtBusca.getText()));
+            pd.show();
         }
 
         protected GeocodingResult[] doInBackground(String... SearchAddresses) {
@@ -420,33 +428,74 @@ public class MapsActivity extends FragmentActivity
             //setProgressPercent(progress[0]);
         }
 
-        protected void onPostExecute(GeocodingResult[] results) {
-            Toast msg = Toast.makeText(MapsActivity.this, ".", Toast.LENGTH_SHORT);
-            ;
-            msg.show();
+        protected void onPostExecute(final GeocodingResult[] results) {
 
-            CameraUpdate newCamera = CameraUpdateFactory.scrollBy(0, 0);
-            if (results != null) {
-                msg.setText("..");
-                if (results.length == 1) {
-                    newCamera = CameraUpdateFactory.newLatLng(
-                            new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
-                } else {
-                    spnLista.setAdapter(
-                            new ArrayAdapter<GeocodingResult>(MapsActivity.this,
-                                    android.R.layout.simple_spinner_dropdown_item,
-                                    results));
+            try {
+                CameraUpdate newCamera = null;
 
-                    msg.setText("...");
-                    pnlBuscar.setVisibility(View.GONE);
-                    spnLista.setVisibility(View.VISIBLE);
-                    msg.setText("....");
-                }
-            } else
-                msg.setText("Nenhum resultado encotrado...");
-            getMap().moveCamera(newCamera);
-            setMapZoomSmooth(getMap().getMaxZoomLevel() - 6);
-            getMap().moveCamera(newCamera);
+                if (results != null) {
+                    if (results.length == 0) {
+                        pd.setMessage(getString(R.string.search_nodatafound));
+                        try {
+                            Thread.sleep(700, 1);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        pd.dismiss();
+                    } else if (results.length == 1) {
+
+                        newCamera = CameraUpdateFactory.newLatLngZoom(
+                                new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng),
+                                getMap().getMaxZoomLevel()-4);
+                        getMap().moveCamera(newCamera);
+                    } else if (results.length > 1) {
+                        pd.setMessage(getString(R.string.search_toomanyfound));
+
+                        ArrayList<CharSequence> SearchAddressTaskResults = new ArrayList<CharSequence>(results.length);
+                        for (GeocodingResult res : results)
+                            SearchAddressTaskResults.add(res.formattedAddress);
+
+                        ArrayAdapter<CharSequence> arrayAdapter = new ArrayAdapter<CharSequence>(MapsActivity.this,
+                                android.R.layout.simple_selectable_list_item, SearchAddressTaskResults);
+
+                        //SearchAddressTaskResults = (GeocodingResultForPickList[]) lista.toArray();
+                        AlertDialog.Builder builder = new AlertDialog.Builder(MapsActivity.this);
+                        builder.setTitle(R.string.pick_one)
+                                .setAdapter(arrayAdapter, new DialogInterface.OnClickListener() {
+                                    @Override
+                                    public void onClick(DialogInterface dialog, int which) {
+                                        GeocodingResult result = results[which];
+                                        txtBusca.setText(result.formattedAddress);
+                                        CameraUpdate newCamera = CameraUpdateFactory.newLatLngZoom(
+                                                new LatLng(results[which].geometry.location.lat, result.geometry.location.lng),
+                                                getMap().getMaxZoomLevel()-4);
+                                        getMap().moveCamera(newCamera);
+                                    }
+                                }).setNegativeButton(R.string.info_window_negative_button, null);
+//                            .setItems((CharSequence[]) lista.toArray(), new DialogInterface.OnClickListener() {
+//                                public void onClick(DialogInterface dialog, int which) {
+//                                    newCamera = CameraUpdateFactory.newLatLng(
+//                                            new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
+//                                    getMap().moveCamera(newCamera);
+//                                }
+//                            });
+                        AlertDialog pick = builder.create();
+                        pick.show();
+                        //spnLista.setAdapter(arrayAdapter);
+
+//                    pnlBuscar.setVisibility(View.GONE);
+//                    spnLista.setVisibility(View.VISIBLE);
+                    }
+                } else
+                    pd.setMessage(getString(R.string.search_error));
+//            getMap().moveCamera(newCamera);
+//            setMapZoomSmooth(getMap().getMaxZoomLevel() - 6);
+//            getMap().moveCamera(newCamera);
+
+            } finally {
+                pd.dismiss();
+
+            }
         }
     }
 

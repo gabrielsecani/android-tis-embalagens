@@ -42,10 +42,12 @@ class PontoDeTrocaRenderer extends DefaultClusterRenderer<PontoDeTroca> {
 
         Point size = new Point();
         mapsActivity.getWindowManager().getDefaultDisplay().getSize(size);
-        howManyToRenderAsCluster = (int) (Math.sqrt((size.y * .8) * (size.x * .8)) / 196);
+        howManyToRenderAsCluster = 3;//(int) (Math.sqrt((size.y * .8) * (size.x * .8)) / 196);
 
         View multiProfile = mapsActivity.getLayoutInflater().inflate(R.layout.multi_profile, null);
         mClusterIconGenerator.setContentView(multiProfile);
+        mClusterIconGenerator.setStyle(android.R.style.Theme_Translucent);
+
         mClusterImageView = (ImageView) multiProfile.findViewById(R.id.image);
 
         mImageView = new ImageView(mapsActivity.getApplicationContext());
@@ -54,6 +56,7 @@ class PontoDeTrocaRenderer extends DefaultClusterRenderer<PontoDeTroca> {
         int padding = (int) mapsActivity.getResources().getDimension(R.dimen.custom_profile_padding);
         mImageView.setPadding(padding, padding, padding, padding);
         mIconGenerator.setContentView(mImageView);
+
     }
 
     @Override

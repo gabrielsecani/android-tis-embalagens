@@ -2,5 +2,13 @@
 <resources>
     <string name="search_hint">Buscar</string>
     <string name="inputtext_hint">Procurar...</string>
+    <string name="search_error">Ocorreu algo na busca...</string>
+    <string name="searchingFor">Buscando</string>
+    <string name="search_nodatafound">Nenhum resultado encontrado.</string>
+    <string name="search_toomanyfound">Muitos resultados foram encontrados...</string>
+    <string name="pick_one">Escolha um da lista</string>
+    <string name="info_window_tittle">Lista reduzida</string>
+    <string name="info_window_negative_button">Cancelar</string>
 
+    <string name="info_window_">Tem mais</string>
 </resources>
