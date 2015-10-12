@@ -3,7 +3,6 @@ package br.com.tisengenharia.tisapp;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.graphics.Bitmap;
-import android.graphics.Point;
 import android.graphics.drawable.Drawable;
 import android.text.Html;
 import android.view.View;
@@ -50,8 +49,8 @@ class PontoDeTrocaRenderer extends DefaultClusterRenderer<PontoDeTroca>
         mClusterIconGenerator = new IconGenerator(mapsActivity.getApplicationContext());
         this.mapsActivity=mapsActivity;
 
-        Point size = new Point();
-        mapsActivity.getWindowManager().getDefaultDisplay().getSize(size);
+//        Point size = new Point();
+//        mapsActivity.getWindowManager().getDefaultDisplay().getSize(size);
         //howManyToRenderAsCluster = (int) (Math.sqrt((size.y * .8) * (size.x * .8)) / 196);
 
         View multiProfile = mapsActivity.getLayoutInflater().inflate(R.layout.multi_profile, null);

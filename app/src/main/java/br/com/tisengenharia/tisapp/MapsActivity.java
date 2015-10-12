@@ -7,7 +7,6 @@ import android.content.SharedPreferences;
 import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -479,6 +478,7 @@ public class MapsActivity extends FragmentActivity {
         protected void onPreExecute() {
             super.onPreExecute();
 
+            //TODO: Check to get access do Intenet
             float lzoom = getMap().getCameraPosition().zoom;
 
             if (!blForceRun) {
@@ -598,10 +598,10 @@ public class MapsActivity extends FragmentActivity {
         }
 
         @Override
-        protected void onPostExecute(@Nullable List<PontoDeTroca> returnValue) {
+        protected void onPostExecute(List<PontoDeTroca> returnValue) {
 
-            Log.i("LoadItemsTask", "Foram encontrados " + returnValue.size() + " marcadores");
             if (returnValue != null) {
+                Log.i("LoadItemsTask", "Foram encontrados " + returnValue.size() + " marcadores");
                 if (returnValue.size() > 0) {
                     mClusterManager.clearItems();
                     mClusterManager.addItems(returnValue);
@@ -610,6 +610,7 @@ public class MapsActivity extends FragmentActivity {
 
                 }
             } else {
+                Log.i("LoadItemsTask", "Reiniciando busca de marcadores dentro de alguns instantes");
                 try {
                     Thread.sleep(100, 0);
                 } catch (InterruptedException e) {
