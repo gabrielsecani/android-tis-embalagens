@@ -17,6 +17,7 @@ import br.com.tisengenharia.tisapp.R;
 
 /**
  * Created by Gabriel on 06/09/2015.
+ *
  */
 public class Notificacao {
 

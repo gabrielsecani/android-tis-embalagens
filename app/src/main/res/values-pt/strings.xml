@@ -10,5 +10,9 @@
     <string name="pick_one">Escolha um da lista</string>
     <string name="info_window_cluster_tittle">Lista de locais</string>
     <string name="info_window_negative_button">Cancelar</string>
+    <string name="searchmarker_title">Busca</string>
+    <string name="searchmarker_snippet">Esta é a localização que você buscou</string>
+    <string name="mymarker_snippet">Esta é sua localização</string>
+    <string name="mymarker_title">Você está aqui!</string>
 
 </resources>

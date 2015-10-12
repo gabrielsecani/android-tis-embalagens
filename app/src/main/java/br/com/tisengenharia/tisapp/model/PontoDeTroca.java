@@ -13,7 +13,6 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.util.List;
 import java.util.zip.GZIPInputStream;
 
 import br.com.tisengenharia.utils.GeoCoding;
@@ -145,7 +144,6 @@ public class PontoDeTroca implements ClusterItem {
                 return 1;
             }
             if (isCancelled()) return null;
-            List<PontoDeTroca> items = null;
 
             try {
 

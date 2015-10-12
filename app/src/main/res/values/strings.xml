@@ -11,4 +11,8 @@
     <string name="pick_one">Pick one of the list</string>
     <string name="info_window_negative_button">Cancelar</string>
     <string name="info_window_cluster_tittle">Place list</string>
+    <string name="mymarker_snippet">This is your location</string>
+    <string name="mymarker_title">You are here!</string>
+    <string name="searchmarker_snippet">This is the search location</string>
+    <string name="searchmarker_title">Search</string>
 </resources>

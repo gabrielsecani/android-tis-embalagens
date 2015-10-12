@@ -2169,9 +2169,7 @@ public class XMLMapMarkerParser {
         XMLMapMarkerParser xmlMapMarkerParser = new XMLMapMarkerParser();
         try {
             items = xmlMapMarkerParser.parse(sr);
-        } catch (XmlPullParserException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (XmlPullParserException | IOException e) {
             e.printStackTrace();
         }
         if (items != null)

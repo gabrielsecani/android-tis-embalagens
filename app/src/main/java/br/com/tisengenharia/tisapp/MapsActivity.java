@@ -68,6 +68,7 @@ public class MapsActivity extends FragmentActivity {
     private double lngMax = 0;
     private double lngMin = 0;
     private Marker myMarker;
+    private Marker mySearch;
 
     public ClusterManager<PontoDeTroca> mClusterManager;
 
@@ -213,11 +214,18 @@ public class MapsActivity extends FragmentActivity {
                 llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.611, -46.642) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
 
 
-            myMarker = getMap().addMarker(new MarkerOptions().
-                            position(llMeuLugar).
-                            title("Você está aqui!").
-                            snippet("Esta é sua localização").
-                            icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+            myMarker = getMap().addMarker(new MarkerOptions()
+                            .position(llMeuLugar)
+                            .title(getString(R.string.mymarker_title))
+                            .snippet(getString(R.string.mymarker_snippet))
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+            );
+            mySearch = getMap().addMarker(new MarkerOptions()
+                            .position(llMeuLugar)
+                            .title(getString(R.string.searchmarker_title))
+                            .snippet(getString(R.string.searchmarker_snippet))
+                            .visible(false)
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
             );
 
         } catch (Exception e) {
@@ -273,7 +281,7 @@ public class MapsActivity extends FragmentActivity {
 
         // Initialize the manager with the context and the map.
         // (Activity extends context, so we can pass 'this' in the constructor.)
-        mClusterManager = new ClusterManager<PontoDeTroca>(this, getMap());
+        mClusterManager = new ClusterManager<>(this, getMap());
         PontoDeTrocaRenderer pontoDeTrocaRenderer = new PontoDeTrocaRenderer(this);
         mClusterManager.setRenderer(pontoDeTrocaRenderer);
         getMap().setOnCameraChangeListener(mClusterManager);
@@ -378,11 +386,10 @@ public class MapsActivity extends FragmentActivity {
             pd.setIndeterminate(true);
             pd.setMessage(getString(R.string.searchingFor) + " " + String.valueOf(txtBusca.getText()));
             pd.show();
+            mySearch.setVisible(true);
         }
 
         protected GeocodingResult[] doInBackground(String... SearchAddresses) {
-            int count = SearchAddresses.length;
-            CameraUpdate newCamera = null;
             if (SearchAddresses.length > 0)
                 return GeoCoding.getGeocodingResultFromAddress(SearchAddresses[0]);
             else
@@ -407,19 +414,20 @@ public class MapsActivity extends FragmentActivity {
                         }
                         pd.dismiss();
                     } else if (results.length == 1) {
+                        mySearch.setPosition(new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
+                        mySearch.setVisible(true);
                         CameraUpdate newCamera = CameraUpdateFactory.newLatLngZoom(
-                                new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng),
-                                getMap().getMaxZoomLevel() - 2);
+                                mySearch.getPosition(), getMap().getMaxZoomLevel() - 2);
                         getMap().moveCamera(newCamera);
                     } else if (results.length > 1) {
                         pd.setMessage(getString(R.string.search_toomanyfound));
 
-                        ArrayList<CharSequence> SearchAddressTaskResults = new ArrayList<CharSequence>(results.length);
+                        ArrayList<CharSequence> SearchAddressTaskResults = new ArrayList<>(results.length);
                         for (GeocodingResult res : results)
                             SearchAddressTaskResults.add(res.formattedAddress);
 
-                        ArrayAdapter<CharSequence> arrayAdapter = new ArrayAdapter<CharSequence>(MapsActivity.this,
-                                android.R.layout.simple_selectable_list_item, SearchAddressTaskResults);
+                        ArrayAdapter<CharSequence> arrayAdapter = new ArrayAdapter<>(MapsActivity.this,
+                                android.R.layout.simple_list_item_1, SearchAddressTaskResults);
 
                         //SearchAddressTaskResults = (GeocodingResultForPickList[]) lista.toArray();
                         AlertDialog.Builder builder = new AlertDialog.Builder(MapsActivity.this);
@@ -464,7 +472,7 @@ public class MapsActivity extends FragmentActivity {
 
     private class LoadItemsTask extends AsyncTask<Integer, Integer, List<PontoDeTroca>> {
         String sURL;
-        private boolean blForceRun;
+        private final boolean blForceRun;
 
         public LoadItemsTask() {
             this.blForceRun = false;

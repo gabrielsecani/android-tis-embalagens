@@ -41,7 +41,7 @@ class PontoDeTrocaRenderer extends DefaultClusterRenderer<PontoDeTroca>
     private final ImageView mImageView;
     private final ImageView mClusterImageView;
     private final int mDimension;
-    private MapsActivity mapsActivity;
+    private final MapsActivity mapsActivity;
 
     public PontoDeTrocaRenderer(MapsActivity mapsActivity) {
         super(mapsActivity.getApplicationContext(), mapsActivity.getMap(), mapsActivity.mClusterManager);
@@ -91,7 +91,9 @@ class PontoDeTrocaRenderer extends DefaultClusterRenderer<PontoDeTroca>
         for (PontoDeTroca p : cluster.getItems()) {
             // Draw 4 at most.
             if (profilePhotos.size() == 4) break;
-            Drawable drawable = mapsActivity.getResources().getDrawable(p.profilePhoto);
+            Drawable drawable = null;
+            drawable = mapsActivity.getResources().getDrawable(p.profilePhoto);
+            assert drawable != null;
             drawable.setBounds(0, 0, width, height);
             profilePhotos.add(drawable);
         }

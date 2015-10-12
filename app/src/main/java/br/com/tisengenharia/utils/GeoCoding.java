@@ -90,8 +90,8 @@ public abstract class GeoCoding {
 //        } catch (IOException e) {
 //            e.printStackTrace();
 //        }
-        for (int i = 0; i < format.length; i++) {
-            AddressComponent valor = getAddressComponent(addressComponents, format[i]);
+        for (AddressComponentType aFormat : format) {
+            AddressComponent valor = getAddressComponent(addressComponents, aFormat);
             if (valor != null) {
                 stringBuilder.append(" ").append(valor.shortName);
 
@@ -189,8 +189,6 @@ public abstract class GeoCoding {
     public enum GeocodingResultFormater {
         NATURAL, SHORT;
 
-        GeocodingResultFormater() {
-        }
     }
 
     public static GeocodingResult[] getGeocodingResultFromAddress(String addressText) {
