@@ -6,9 +6,9 @@
     <string name="searchingFor">Buscando</string>
     <string name="search_nodatafound">Nenhum resultado encontrado.</string>
     <string name="search_toomanyfound">Muitos resultados foram encontrados...</string>
+    <string name="waiting">Carregando...</string>
     <string name="pick_one">Escolha um da lista</string>
-    <string name="info_window_tittle">Lista reduzida</string>
+    <string name="info_window_cluster_tittle">Lista de locais</string>
     <string name="info_window_negative_button">Cancelar</string>
 
-    <string name="info_window_">Tem mais</string>
 </resources>

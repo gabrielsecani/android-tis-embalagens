@@ -7,6 +7,8 @@
     <string name="searchingFor">Searching</string>
     <string name="search_nodatafound">No result found.</string>
     <string name="search_toomanyfound">Too many results...</string>
+    <string name="waiting">Loading...</string>
     <string name="pick_one">Pick one of the list</string>
     <string name="info_window_negative_button">Cancelar</string>
+    <string name="info_window_cluster_tittle">Place list</string>
 </resources>

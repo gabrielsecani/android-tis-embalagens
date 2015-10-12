@@ -4,8 +4,10 @@ import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
+import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -16,7 +18,6 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.maps.CameraUpdate;
@@ -24,10 +25,12 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.UiSettings;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
-import com.google.maps.android.clustering.Cluster;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.model.GeocodingResult;
 
@@ -38,7 +41,6 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
@@ -47,8 +49,7 @@ import br.com.tisengenharia.tisapp.model.PontoDeTroca;
 import br.com.tisengenharia.utils.GeoCoding;
 import br.com.tisengenharia.utils.XMLMapMarkerParser;
 
-public class MapsActivity extends FragmentActivity
-        implements ClusterManager.OnClusterClickListener<PontoDeTroca>, ClusterManager.OnClusterInfoWindowClickListener<PontoDeTroca>, ClusterManager.OnClusterItemClickListener<PontoDeTroca>, ClusterManager.OnClusterItemInfoWindowClickListener<PontoDeTroca> {
+public class MapsActivity extends FragmentActivity {
 
     public static final String TAG = "MapsActivity";
     private final String LAST_LOCATION = "MyLastLocation";
@@ -61,23 +62,19 @@ public class MapsActivity extends FragmentActivity
     //
 
     private LatLng llMeuLugar;
-
-    protected static long LoadItemsTaskControle = new Date().getTime();
+    public static long LoadItemsTaskControle = new Date().getTime();
+    float zoom = 0;
     private double latMax = 0;
     private double latMin = 0;
     private double lngMax = 0;
     private double lngMin = 0;
-    private double zoom = 0;
+    private Marker myMarker;
 
     public ClusterManager<PontoDeTroca> mClusterManager;
-
-    // Whether the display should be refreshed.
-    public static boolean refreshDisplay = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        refreshDisplay = true;
         setContentView(R.layout.activity_maps);
 
         SharedPreferences settings = getSharedPreferences(LAST_LOCATION, 0);
@@ -92,15 +89,24 @@ public class MapsActivity extends FragmentActivity
             Log.d(TAG, "isAval: " + isAval);
         }
 
-        setUpEvents();
 
         setUpMapIfNeeded();
 
         setUpMeuLocalIfNeeded();
+
+        setUpEvents();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.d(TAG, "onStart()");
+
     }
 
     @Override
     protected void onStop() {
+        Log.d(TAG, "onStop()");
 
         if (getMap() != null)
             if (getMap().getMyLocation() != null)
@@ -119,254 +125,25 @@ public class MapsActivity extends FragmentActivity
         editor.commit();
 
         super.onStop();
-
-    }
-
-    private void setMapZoomSmooth(float zoom) {
-        while (getMap().getCameraPosition().zoom != zoom) {
-            LoadItemsTaskControle = new Date().getTime();
-            float zoomAtual = getMap().getCameraPosition().zoom;
-            float zoomNovo = zoomAtual;
-            Log.i(TAG, "ZoomAtual: " + zoomAtual);
-            if (Math.abs(zoomAtual - zoom) <= 1)
-                zoomNovo = zoom;
-                //else if (zoomAtual > zoom)
-                //    zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
-            else// if (zoomAtual < zoom)
-                zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
-
-            getMap().moveCamera(CameraUpdateFactory.zoomTo(zoomNovo));
-            try {
-                //Thread.yield();
-                Thread.sleep(100, 0);
-            } catch (InterruptedException e) {
-                Log.e(TAG, "aguardando animação de zoomSmooth:: " + e.getMessage());
-            }
-        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG, "onResume()");
         setUpMapIfNeeded();
         SharedPreferences settings = getSharedPreferences(LAST_LOCATION, 0);
         llMeuLugar = new LatLng(
                 Double.parseDouble(settings.getString("LastLatitude", "-23.6117561")),
                 Double.parseDouble(settings.getString("LastLongitude", "-46.6420428")));
-        float zmm = Float.parseFloat(settings.getString("LastZoom", "13"));
+        float zmm = Float.parseFloat(settings.getString("LastZoom", "10"));
         getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(llMeuLugar, zmm));
 
-    }
-
-    /**
-     * Sets up the map if it is possible to do so (i.e., the Google Play services APK is correctly
-     * installed) and the map has not already been instantiated.. This will ensure that we only ever
-     * call {@link #setUpMap()} once when {@link #mMap} is not null.
-     * <p/>
-     * If it isn't installed {@link SupportMapFragment} (and
-     * {@link com.google.android.gms.maps.MapView MapView}) will show a prompt for the user to
-     * install/update the Google Play services APK on their device.
-     * <p/>
-     * A user can return to this FragmentActivity after following the prompt and correctly
-     * installing/updating/enabling the Google Play services. Since the FragmentActivity may not
-     * have been completely destroyed during this process (it is likely that it would only be
-     * stopped or paused), {@link #onCreate(Bundle)} may not be called again so we should call this
-     * method in {@link #onResume()} to guarantee that it will be called.
-     */
-    private void setUpMapIfNeeded() {
-        // Do a null check to confirm that we have not already instantiated the map.
-        if (getMap() == null) {
-            // Try to obtain the map from the SupportMapFragment.
-            mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map)).getMap();
-            // Check if we were successful in obtaining the map.
-            if (getMap() != null) {
-                setUpMap();
-            }
-        }
-    }
-
-    private void setUpMeuLocalIfNeeded() {
-        try {
-            if (getMap() != null)
-                llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.611, -46.642) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
-        } catch (Exception e) {
-            Log.e(TAG, "setUpMeuLocalIfNeeded():: exception message: " + e.getMessage());
-        }
-    }
-
-    /**
-     * This is where we can add markers or lines, add listeners or move the camera. In this case, we
-     * just add a marker near Africa.
-     * <p/>
-     * This should only be called once and when we are sure that {@link #mMap} is not null.
-     */
-    private void setUpMap() {
-
-        getMap().setMyLocationEnabled(true);
-
-        UiSettings uis = getMap().getUiSettings();
-        uis.setZoomControlsEnabled(true);
-        uis.setZoomGesturesEnabled(true);
-        uis.setMyLocationButtonEnabled(true);
-        uis.setScrollGesturesEnabled(true);
-        uis.setTiltGesturesEnabled(true);
-        uis.setCompassEnabled(true);
-        uis.setRotateGesturesEnabled(true);
-        uis.setMapToolbarEnabled(true);
-
-        getMap().setBuildingsEnabled(false);
-
-
-        setUpClusterer();
-
-    }
-
-    public GoogleMap getMap() {
-        return mMap;
-    }
-
-    private void setUpClusterer() {
-
-        // Position the map.
-        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(-23.6117561, -46.6420428), 8));
-
-
-        // Initialize the manager with the context and the map.
-        // (Activity extends context, so we can pass 'this' in the constructor.)
-        mClusterManager = new ClusterManager<PontoDeTroca>(this, getMap());
-
-        mClusterManager.setRenderer(new PontoDeTrocaRenderer(this));
-        getMap().setOnCameraChangeListener(mClusterManager);
-        getMap().setOnMarkerClickListener(mClusterManager);
-        getMap().setOnInfoWindowClickListener(mClusterManager);
-        mClusterManager.setOnClusterClickListener(this);
-        mClusterManager.setOnClusterItemClickListener(this);
-        mClusterManager.setOnClusterItemInfoWindowClickListener(this);
-        mClusterManager.setOnClusterInfoWindowClickListener(this);
-
-//        DefaultClusterRenderer<PontoDeTroca> defRenderer = new DefaultClusterRenderer<PontoDeTroca>(this, getMap(), mClusterManager);
-//
-//        defRenderer.setOnClusterItemClickListener(new ClusterManager.OnClusterItemClickListener<PontoDeTroca>() {
-//            @Override
-//            public boolean onClusterItemClick(PontoDeTroca pontoDeTroca) {
-//                Log.d(TAG, "setOnClusterItemClickListener: "+pontoDeTroca.getPosition().latitude);
-//                return false;
-//            }
-//        });
-//
-//        mClusterManager.setRenderer(defRenderer);
-
-        // Point the map's listeners at the listeners implemented by the cluster
-        // manager.
-//        getMap().setOnCameraChangeListener(mClusterManager);
-//
-        getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
-            @Override
-            public void onCameraChange(CameraPosition cameraPosition) {
-
-                new LoadItemsTask().execute(1);
-                mClusterManager.onCameraChange(cameraPosition);
-            }
-        });
-
-        getMap().setOnMarkerClickListener(mClusterManager);
-
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-
-        if (refreshDisplay) {
-            new LoadItemsTask().execute(0);
-        }
-    }
-
-    @Override
-    public boolean onClusterClick(Cluster<PontoDeTroca> cluster) {
-        // Show a toast with some info when the cluster is clicked.
-//        String firstName = cluster.getItems().iterator().next().getCDATA();
-//        Toast.makeText(this, "(" + firstName + ", ...)", Toast.LENGTH_SHORT).show();
-//        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(cluster.getPosition(), getMap().getCameraPosition().zoom + 1));
-
-        final Collection<PontoDeTroca> array_cluster = cluster.getItems();
-        ArrayList<CharSequence> listaCharSequences = new ArrayList<>(array_cluster.size());
-        for (PontoDeTroca pdt : array_cluster) {
-            listaCharSequences.add(pdt.getCDATA());
-        }
-
-        AlertDialog.Builder ad = new AlertDialog.Builder(this).setTitle(getString(R.string.info_window_tittle))
-                .setAdapter(new ArrayAdapter(MapsActivity.this, android.R.layout.simple_list_item_1, listaCharSequences), new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        PontoDeTroca pt = (PontoDeTroca) array_cluster.toArray()[which];
-                        float zoom = (pt.getCDATA().isEmpty())?(getMap().getCameraPosition().zoom + 1):getMap().getMaxZoomLevel()-4;
-                        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(pt.getPosition(), zoom));
-                    }
-                })
-                .setNegativeButton(R.string.info_window_negative_button, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
-        ad.create().show();
-
-        return true;
-    }
-
-    @Override
-    public void onClusterInfoWindowClick(Cluster<PontoDeTroca> cluster) {
-        // Does nothing, but you could go to a list of the users.
-        StringBuilder lista = new StringBuilder(cluster.getSize());
-        for (PontoDeTroca pt : cluster.getItems()) {
-            lista.append(pt.getCDATA() + "<br> ");
-        }
-
-        Toast.makeText(MapsActivity.this, lista.toString(), Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public boolean onClusterItemClick(PontoDeTroca item) {
-
-        Toast.makeText(MapsActivity.this, "clitem "+ item.getPrefixo()+item.getBaloonInfo(), Toast.LENGTH_LONG).show();
-
-        return true;
-    }
-
-    @Override
-    public void onClusterItemInfoWindowClick(PontoDeTroca item) {
-
-        Toast.makeText(MapsActivity.this, "clitem-infownd " + item.getPrefixo() + item.getBaloonInfo(), Toast.LENGTH_LONG).show();
-    }
-
-    @Deprecated
-    private void addItems() {
-
-        // Set some lat/lng coordinates to start with.
-        double lat = -23.6117561;
-        double lng = -46.6420428;
-
-        mClusterManager.clearItems();
-
-        // Add ten cluster items in close proximity, for purposes of this example.
-        for (int i = 0; i < 10; i++) {
-            double offseta = (i / 420d) - (i - 3 % 6) / 90d;
-            double offsetb = (i * i * ((i % 2 == 0) ? -0.3 : 0.4)) / 660d;
-            lat = lat - offseta;
-            lng = lng + offsetb;
-            int id = 6819;
-            String prefixo = "cooperativa",
-                    cData = "Demo " + i + ": " + new Date().getTime() % 10000;
-
-            PontoDeTroca offsetItem = new PontoDeTroca(lat, lng, id, prefixo, cData, R.drawable.marcadorpadrao);
-
-            mClusterManager.addItem(offsetItem);
-        }
-
+        new LoadItemsTask(true).execute(2);
     }
 
     private void setUpEvents() {
+
         btnBuscar = (Button) findViewById(R.id.btnBuscar);
         btnBuscar.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -403,6 +180,195 @@ public class MapsActivity extends FragmentActivity
 
     }
 
+
+    /**
+     * Sets up the map if it is possible to do so (i.e., the Google Play services APK is correctly
+     * installed) and the map has not already been instantiated.. This will ensure that we only ever
+     * call {@link #setUpMap()} once when {@link #mMap} is not null.
+     * <p/>
+     * If it isn't installed {@link SupportMapFragment} (and
+     * {@link com.google.android.gms.maps.MapView MapView}) will show a prompt for the user to
+     * install/update the Google Play services APK on their device.
+     * <p/>
+     * A user can return to this FragmentActivity after following the prompt and correctly
+     * installing/updating/enabling the Google Play services. Since the FragmentActivity may not
+     * have been completely destroyed during this process (it is likely that it would only be
+     * stopped or paused), {@link #onCreate(Bundle)} may not be called again so we should call this
+     * method in {@link #onResume()} to guarantee that it will be called.
+     */
+    private void setUpMapIfNeeded() {
+        // Do a null check to confirm that we have not already instantiated the map.
+        if (getMap() == null) {
+            // Try to obtain the map from the SupportMapFragment.
+            mMap = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map)).getMap();
+            // Check if we were successful in obtaining the map.
+            if (getMap() != null) {
+                setUpMap();
+            }
+        }
+    }
+
+    private void setUpMeuLocalIfNeeded() {
+        try {
+            if (getMap() != null)
+                llMeuLugar = (getMap().getMyLocation() == null ? new LatLng(-23.611, -46.642) : new LatLng(getMap().getMyLocation().getLatitude(), getMap().getMyLocation().getLongitude()));
+
+
+            myMarker = getMap().addMarker(new MarkerOptions().
+                            position(llMeuLugar).
+                            title("Você está aqui!").
+                            snippet("Esta é sua localização").
+                            icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+            );
+
+        } catch (Exception e) {
+            Log.e(TAG, "setUpMeuLocalIfNeeded():: exception message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * This is where we can add markers or lines, add listeners or move the camera. In this case, we
+     * just add a marker near Africa.
+     * <p/>
+     * This should only be called once and when we are sure that {@link #mMap} is not null.
+     */
+    private void setUpMap() {
+
+        getMap().setMyLocationEnabled(true);
+
+        UiSettings uis = getMap().getUiSettings();
+        uis.setZoomControlsEnabled(true);
+        uis.setZoomGesturesEnabled(true);
+        uis.setMyLocationButtonEnabled(true);
+        uis.setScrollGesturesEnabled(true);
+        uis.setTiltGesturesEnabled(true);
+        uis.setCompassEnabled(true);
+        uis.setRotateGesturesEnabled(true);
+        uis.setMapToolbarEnabled(true);
+
+        getMap().setBuildingsEnabled(false);
+
+
+        getMap().setOnMyLocationChangeListener(new GoogleMap.OnMyLocationChangeListener() {
+            @Override
+            public void onMyLocationChange(Location location) {
+                myMarker.setPosition(new LatLng(location.getLatitude(), location.getLongitude()));
+                //getMap().moveCamera(CameraUpdateFactory.newLatLng(myMarker.getPosition()));
+
+            }
+        });
+
+        setUpClusterer();
+
+    }
+
+    public GoogleMap getMap() {
+        return mMap;
+    }
+
+    private void setUpClusterer() {
+
+        // Position the map.
+        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(-23.6117561, -46.6420428), 8));
+
+
+        // Initialize the manager with the context and the map.
+        // (Activity extends context, so we can pass 'this' in the constructor.)
+        mClusterManager = new ClusterManager<PontoDeTroca>(this, getMap());
+        PontoDeTrocaRenderer pontoDeTrocaRenderer = new PontoDeTrocaRenderer(this);
+        mClusterManager.setRenderer(pontoDeTrocaRenderer);
+        getMap().setOnCameraChangeListener(mClusterManager);
+        getMap().setOnMarkerClickListener(mClusterManager);
+        getMap().setOnInfoWindowClickListener(mClusterManager);
+//        getMap().setInfoWindowAdapter(new GoogleMap.InfoWindowAdapter() {
+//            @Override
+//            public View getInfoWindow(Marker marker) {
+//                return null;
+//            }
+//
+//            @Override
+//            public View getInfoContents(Marker marker) {
+//                View myContentView = getLayoutInflater().inflate(R.layout.custommarker, null);
+//                TextView tvTitle = ((TextView) myContentView.findViewById(R.id.custommarker_title));
+//                tvTitle.setText(marker.getTitle());
+//                TextView tvSnippet = ((TextView) myContentView.findViewById(R.id.custommarker_snippet));
+//                tvSnippet.setText(marker.getSnippet());
+//                ImageView icon = (ImageView) myContentView.findViewById(R.id.custommarker_icon);
+//
+//                if (mClusterManager.getClusterMarkerCollection().getMarkers().contains(marker)) {
+//                    icon.setImageResource(R.drawable.marcadorpadraoplus);
+//                }
+//
+//                return myContentView;
+//            }
+//        });
+
+        mClusterManager.setOnClusterClickListener(pontoDeTrocaRenderer);
+        mClusterManager.setOnClusterItemClickListener(pontoDeTrocaRenderer);
+        mClusterManager.setOnClusterItemInfoWindowClickListener(pontoDeTrocaRenderer);
+        mClusterManager.setOnClusterInfoWindowClickListener(pontoDeTrocaRenderer);
+
+        getMap().setOnCameraChangeListener(new GoogleMap.OnCameraChangeListener() {
+            @Override
+            public void onCameraChange(CameraPosition cameraPosition) {
+
+                new LoadItemsTask().execute(1);
+                mClusterManager.onCameraChange(cameraPosition);
+            }
+        });
+
+    }
+
+    @Deprecated
+    private void addItems() {
+
+        // Set some lat/lng coordinates to start with.
+        double lat = -23.6117561;
+        double lng = -46.6420428;
+
+        mClusterManager.clearItems();
+
+        // Add ten cluster items in close proximity, for purposes of this example.
+        for (int i = 0; i < 10; i++) {
+            double offseta = (i / 420d) - (i - 3 % 6) / 90d;
+            double offsetb = (i * i * ((i % 2 == 0) ? -0.3 : 0.4)) / 660d;
+            lat = lat - offseta;
+            lng = lng + offsetb;
+            int id = 6819;
+            String prefixo = "cooperativa",
+                    cData = "Demo " + i + ": " + new Date().getTime() % 10000;
+
+            PontoDeTroca offsetItem = new PontoDeTroca(lat, lng, id, prefixo, cData, R.drawable.marcadorpadrao);
+
+            mClusterManager.addItem(offsetItem);
+        }
+
+    }
+
+    @Deprecated
+    private void setMapZoomSmooth(float zoom) {
+        while (getMap().getCameraPosition().zoom != zoom) {
+            LoadItemsTaskControle = new Date().getTime();
+            float zoomAtual = getMap().getCameraPosition().zoom;
+            float zoomNovo;
+            Log.i(TAG, "ZoomAtual: " + zoomAtual);
+            if (Math.abs(zoomAtual - zoom) <= 1)
+                zoomNovo = zoom;
+                //else if (zoomAtual > zoom)
+                //    zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
+            else// if (zoomAtual < zoom)
+                zoomNovo = zoomAtual - (zoomAtual - zoom) * 0.30f;
+
+            getMap().moveCamera(CameraUpdateFactory.zoomTo(zoomNovo));
+            try {
+                //Thread.yield();
+                Thread.sleep(100, 0);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "aguardando animação de zoomSmooth:: " + e.getMessage());
+            }
+        }
+    }
+
     private class SearchAddressTask extends AsyncTask<String, Integer, GeocodingResult[]> {
         ProgressDialog pd;
 
@@ -431,7 +397,6 @@ public class MapsActivity extends FragmentActivity
         protected void onPostExecute(final GeocodingResult[] results) {
 
             try {
-                CameraUpdate newCamera = null;
 
                 if (results != null) {
                     if (results.length == 0) {
@@ -443,10 +408,9 @@ public class MapsActivity extends FragmentActivity
                         }
                         pd.dismiss();
                     } else if (results.length == 1) {
-
-                        newCamera = CameraUpdateFactory.newLatLngZoom(
+                        CameraUpdate newCamera = CameraUpdateFactory.newLatLngZoom(
                                 new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng),
-                                getMap().getMaxZoomLevel()-4);
+                                getMap().getMaxZoomLevel() - 2);
                         getMap().moveCamera(newCamera);
                     } else if (results.length > 1) {
                         pd.setMessage(getString(R.string.search_toomanyfound));
@@ -501,24 +465,34 @@ public class MapsActivity extends FragmentActivity
 
     private class LoadItemsTask extends AsyncTask<Integer, Integer, List<PontoDeTroca>> {
         String sURL;
+        private boolean blForceRun;
+
+        public LoadItemsTask() {
+            this.blForceRun = false;
+        }
+
+        public LoadItemsTask(boolean blForceRun) {
+            this.blForceRun = blForceRun;
+        }
 
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
 
-            double lzoom = getMap().getCameraPosition().zoom;
+            float lzoom = getMap().getCameraPosition().zoom;
 
-            if ((new Date().getTime() - LoadItemsTaskControle <= 4000) &&
-                    (lzoom == zoom)) {
-                Log.v("LoadItemsTask", "rerun time control to dont run over and over again successively: " + (new Date().getTime() - LoadItemsTaskControle));
-                cancel(true);
-                return;
-            } else if (Math.abs(lzoom - zoom) < 0.6 && lzoom != zoom) {
-                Log.v("LoadItemsTask", "zoom was not enough to reload: " + lzoom + "/" + zoom);
-                this.cancel(true);
-                return;
+            if (!blForceRun) {
+                if ((new Date().getTime() - LoadItemsTaskControle <= 2000)) {
+                    Log.v("LoadItemsTask", "rerun time control to dont run over and over again successively: " + (new Date().getTime() - LoadItemsTaskControle));
+                    cancel(true);
+                    return;
+                }
+                if (Math.abs(lzoom - zoom) < 0.6 && lzoom != zoom) {
+                    Log.v("LoadItemsTask", "zoom was not enough to reload: " + lzoom + "/" + zoom);
+                    this.cancel(true);
+                    return;
+                }
             }
-
             // https://developers.google.com/android/reference/com/google/android/gms/maps/model/VisibleRegion
             LatLngBounds vb = getMap().getProjection().getVisibleRegion().latLngBounds;
 
@@ -565,7 +539,7 @@ public class MapsActivity extends FragmentActivity
 
         @Override
         protected List<PontoDeTroca> doInBackground(Integer... params) {
-            //TODO: Buscar pontos no mapa de acordo com a movimentacao de tela.
+            // Buscar pontos no mapa de acordo com a movimentacao de tela.
             // http://www.rotadareciclagem.com.br/site.html?method=carregaEntidades&latMax=-18.808692664927005&lngMax=-31.80579899520876&latMin=-25.010725932824087&lngMin=-54.17868717880251&zoomAtual=7
 
             List<PontoDeTroca> items = null;
@@ -624,7 +598,7 @@ public class MapsActivity extends FragmentActivity
         }
 
         @Override
-        protected void onPostExecute(List<PontoDeTroca> returnValue) {
+        protected void onPostExecute(@Nullable List<PontoDeTroca> returnValue) {
 
             Log.i("LoadItemsTask", "Foram encontrados " + returnValue.size() + " marcadores");
             if (returnValue != null) {
@@ -633,14 +607,15 @@ public class MapsActivity extends FragmentActivity
                     mClusterManager.addItems(returnValue);
                     Log.d("LoadItemsTask", "itens adicionados ao cluster manager. Re-clustering...");
                     mClusterManager.cluster();
+
                 }
             } else {
                 try {
                     Thread.sleep(100, 0);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
+                    Log.d("LoadItemsTask", "tentando executar novamente");
                 }
-                Log.d("LoadItemsTask", "tentando executar novamente");
                 new LoadItemsTask().execute(0);
             }
             LoadItemsTaskControle = 0;
