@@ -417,7 +417,7 @@ public class MapsActivity extends FragmentActivity {
                         mySearch.setPosition(new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
                         mySearch.setVisible(true);
                         CameraUpdate newCamera = CameraUpdateFactory.newLatLngZoom(
-                                mySearch.getPosition(), getMap().getMaxZoomLevel() - 2);
+                                mySearch.getPosition(), getMap().getMaxZoomLevel());
                         getMap().moveCamera(newCamera);
                     } else if (results.length > 1) {
                         pd.setMessage(getString(R.string.search_toomanyfound));
@@ -439,7 +439,7 @@ public class MapsActivity extends FragmentActivity {
                                         txtBusca.setText(result.formattedAddress);
                                         CameraUpdate newCamera = CameraUpdateFactory.newLatLngZoom(
                                                 new LatLng(results[which].geometry.location.lat, result.geometry.location.lng),
-                                                getMap().getMaxZoomLevel()-4);
+                                                getMap().getMaxZoomLevel());
                                         getMap().moveCamera(newCamera);
                                     }
                                 }).setNegativeButton(R.string.info_window_negative_button, null);
