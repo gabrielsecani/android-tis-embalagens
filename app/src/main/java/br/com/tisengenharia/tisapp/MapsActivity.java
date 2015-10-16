@@ -415,9 +415,10 @@ public class MapsActivity extends FragmentActivity {
                         pd.dismiss();
                     } else if (results.length == 1) {
                         mySearch.setPosition(new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
+                        mySearch.setTitle(results[0].formattedAddress);
                         mySearch.setVisible(true);
                         CameraUpdate newCamera = CameraUpdateFactory.newLatLngZoom(
-                                mySearch.getPosition(), getMap().getMaxZoomLevel());
+                                mySearch.getPosition(), getMap().getMaxZoomLevel() - 3);
                         getMap().moveCamera(newCamera);
                     } else if (results.length > 1) {
                         pd.setMessage(getString(R.string.search_toomanyfound));
@@ -437,25 +438,17 @@ public class MapsActivity extends FragmentActivity {
                                     public void onClick(DialogInterface dialog, int which) {
                                         GeocodingResult result = results[which];
                                         txtBusca.setText(result.formattedAddress);
+                                        mySearch.setPosition(new LatLng(results[which].geometry.location.lat, results[which].geometry.location.lng));
+                                        mySearch.setTitle(results[which].formattedAddress);
+                                        mySearch.setVisible(true);
                                         CameraUpdate newCamera = CameraUpdateFactory.newLatLngZoom(
                                                 new LatLng(results[which].geometry.location.lat, result.geometry.location.lng),
-                                                getMap().getMaxZoomLevel());
+                                                getMap().getMaxZoomLevel() - 3);
                                         getMap().moveCamera(newCamera);
                                     }
                                 }).setNegativeButton(R.string.info_window_negative_button, null);
-//                            .setItems((CharSequence[]) lista.toArray(), new DialogInterface.OnClickListener() {
-//                                public void onClick(DialogInterface dialog, int which) {
-//                                    newCamera = CameraUpdateFactory.newLatLng(
-//                                            new LatLng(results[0].geometry.location.lat, results[0].geometry.location.lng));
-//                                    getMap().moveCamera(newCamera);
-//                                }
-//                            });
                         AlertDialog pick = builder.create();
                         pick.show();
-                        //spnLista.setAdapter(arrayAdapter);
-
-//                    pnlBuscar.setVisibility(View.GONE);
-//                    spnLista.setVisibility(View.VISIBLE);
                     }
                 } else
                     pd.setMessage(getString(R.string.search_error));
